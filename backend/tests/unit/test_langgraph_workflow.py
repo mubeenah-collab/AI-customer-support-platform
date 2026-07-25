@@ -84,3 +84,29 @@ def test_compiled_support_graph_end_to_end():
     assert "final_response" in final_state
     assert "standard product warranty" in final_state["final_response"]
     assert final_state["confidence"] > 0.5
+
+
+def test_support_graph_node_failure_recovery():
+    # RAG pipeline throws an error during retrieval
+    mock_rag = MagicMock()
+    mock_rag.run_retrieval.side_effect = Exception("Vector DB query timeout")
+
+    mock_llm = MagicMock()
+    mock_llm.generate.return_value = "I apologize, but I encountered a system issue synthesizing your response."
+
+    graph = build_support_graph(rag_pipeline=mock_rag, llm_service=mock_llm)
+
+    initial_state: SupportState = {
+        "user_id": "usr_err",
+        "conversation_id": "conv_err",
+        "query": "Help with error",
+        "image_bytes": b"corrupt_png_payload",
+    }
+
+    # Graph must NOT raise unhandled exception; must complete and return graceful final_response
+    final_state = graph.invoke(initial_state)
+
+    assert "final_response" in final_state
+    assert final_state["confidence"] == 0.1
+    assert "errors" in final_state
+    assert any("Retrieval error" in err for err in final_state["errors"])

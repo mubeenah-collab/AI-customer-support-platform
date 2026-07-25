@@ -42,26 +42,36 @@ class SupportGraphNodes:
     def retrieve_context(self, state: SupportState) -> Dict[str, Any]:
         """Node 2: Retrieve relevant knowledge base chunks using RAG pipeline."""
         query = state.get("query", "")
-        rag_res: RAGResult = self.rag_pipeline.run_retrieval(query)
-
-        docs_metadata = [
-            {
-                "chunk_id": c.chunk_id,
-                "document_id": c.document_id,
-                "document_name": c.document_name,
-                "page_number": c.page_number,
-                "score": c.relevance_score,
+        try:
+            rag_res: RAGResult = self.rag_pipeline.run_retrieval(query)
+            docs_metadata = [
+                {
+                    "chunk_id": c.chunk_id,
+                    "document_id": c.document_id,
+                    "document_name": c.document_name,
+                    "page_number": c.page_number,
+                    "score": c.relevance_score,
+                }
+                for c in rag_res.chunks
+            ]
+            logger.info(f"LangGraph retrieve_context: Retrieved {len(rag_res.chunks)} chunks.")
+            return {
+                "retrieved_documents": docs_metadata,
+                "retrieved_context": rag_res.context,
+                "citations": rag_res.citations,
+                "has_sufficient_context": rag_res.has_sufficient_context,
             }
-            for c in rag_res.chunks
-        ]
-
-        logger.info(f"LangGraph retrieve_context: Retrieved {len(rag_res.chunks)} chunks.")
-        return {
-            "retrieved_documents": docs_metadata,
-            "retrieved_context": rag_res.context,
-            "citations": rag_res.citations,
-            "has_sufficient_context": rag_res.has_sufficient_context,
-        }
+        except Exception as e:
+            logger.error(f"LangGraph retrieve_context failure: {type(e).__name__} - {str(e)}")
+            errors = list(state.get("errors") or [])
+            errors.append(f"Retrieval error: {str(e)}")
+            return {
+                "retrieved_documents": [],
+                "retrieved_context": "NO RELEVANT KNOWLEDGE BASE DOCUMENTS FOUND.",
+                "citations": [],
+                "has_sufficient_context": False,
+                "errors": errors,
+            }
 
     def vision_analysis(self, state: SupportState) -> Dict[str, Any]:
         """Node 3: Optional visual analysis using Gemini Vision VLM when an image is provided."""
@@ -69,21 +79,27 @@ class SupportGraphNodes:
         image_path_str = state.get("image_path")
         query = state.get("query", "")
 
-        img_path = Path(image_path_str) if image_path_str else None
-        vlm_res = self.vlm_pipeline.process_image_context(
-            image_bytes=image_bytes,
-            image_path=img_path,
-            user_query=query,
-        )
+        if not image_bytes and not image_path_str:
+            return {"visual_context": None}
 
-        if vlm_res:
-            visual_ctx = {
-                "description": vlm_res.description,
-                "diagram_type": vlm_res.diagram_type,
-                "key_observations": vlm_res.key_observations,
-            }
-            logger.info(f"LangGraph vision_analysis: Image analyzed ({vlm_res.diagram_type}).")
-            return {"visual_context": visual_ctx}
+        try:
+            img_path = Path(image_path_str) if image_path_str else None
+            vlm_res = self.vlm_pipeline.process_image_context(
+                image_bytes=image_bytes,
+                image_path=img_path,
+                user_query=query,
+            )
+
+            if vlm_res:
+                visual_ctx = {
+                    "description": vlm_res.description,
+                    "diagram_type": vlm_res.diagram_type,
+                    "key_observations": vlm_res.key_observations,
+                }
+                logger.info(f"LangGraph vision_analysis: Image analyzed ({vlm_res.diagram_type}).")
+                return {"visual_context": visual_ctx}
+        except Exception as e:
+            logger.warning(f"LangGraph vision_analysis failure (skipping image): {type(e).__name__} - {str(e)}")
 
         return {"visual_context": None}
 
