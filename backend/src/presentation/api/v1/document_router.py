@@ -1,6 +1,6 @@
 from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from backend.src.application.services.document_service import DocumentService
 from backend.src.domain.entities.user import User
 from backend.src.domain.exceptions.auth_exceptions import ForbiddenError
