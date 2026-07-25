@@ -49,20 +49,35 @@ class SupportAgentCrew:
         logger.info(f"SupportAgentCrew processing query: '{query[:30]}...'")
 
         # Step 1: Research Agent
-        rag_result: RAGResult = self.research_agent.execute_research(query)
+        try:
+            rag_result: RAGResult = self.research_agent.execute_research(query)
+        except Exception as e:
+            logger.error(f"ResearchAgent failure: {type(e).__name__} - {str(e)}")
+            rag_result = RAGResult(
+                query=query,
+                context="NO RELEVANT KNOWLEDGE BASE DOCUMENTS FOUND.",
+                chunks=[],
+                citations=[],
+                citations_text="",
+                has_sufficient_context=False,
+            )
 
         # Step 2: Vision Agent (Conditional)
         visual_context: Optional[Dict[str, Any]] = None
-        vlm_res = self.vision_agent.execute_vision_analysis(
-            image_bytes=image_bytes,
-            image_path=image_path,
-            user_query=query,
-        )
-        if vlm_res:
-            visual_context = {
-                "description": vlm_res.description,
-                "diagram_type": vlm_res.diagram_type,
-            }
+        try:
+            vlm_res = self.vision_agent.execute_vision_analysis(
+                image_bytes=image_bytes,
+                image_path=image_path,
+                user_query=query,
+            )
+            if vlm_res:
+                visual_context = {
+                    "description": vlm_res.description,
+                    "diagram_type": vlm_res.diagram_type,
+                }
+        except Exception as e:
+            logger.warning(f"VisionAgent failure (skipping image context): {type(e).__name__} - {str(e)}")
+            visual_context = None
 
         # Step 3: Synthesis Agent
         response = self.synthesis_agent.execute_synthesis(

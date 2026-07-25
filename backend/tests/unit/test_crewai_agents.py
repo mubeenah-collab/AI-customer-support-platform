@@ -102,3 +102,30 @@ def test_support_agent_crew_sequential_flow():
 
     response = crew.process_customer_query("Warranty query")
     assert "1 year warranty" in response.answer
+
+
+def test_support_agent_crew_research_and_vision_failure_recovery():
+    # Research agent raises exception (e.g. vector store unavailable)
+    mock_rag = MagicMock()
+    mock_rag.run_retrieval.side_effect = Exception("ChromaDB connection timeout")
+
+    mock_llm = MagicMock()
+    mock_llm.generate.return_value = "I am sorry, but I cannot retrieve knowledge base documents right now."
+
+    # Vision agent raises exception (e.g. corrupt image)
+    mock_vision = MagicMock()
+    mock_vision.analyze_image.side_effect = Exception("Corrupt image payload")
+
+    crew = SupportAgentCrew(
+        rag_pipeline=mock_rag,
+        llm_service=mock_llm,
+        vision_service=mock_vision,
+    )
+
+    # Must NOT crash; should fail gracefully and return synthesis response
+    response = crew.process_customer_query("Help query", image_bytes=b"corrupt")
+    assert response is not None
+    assert response.has_sufficient_context is False
+    assert response.confidence_score == 0.35
+    assert "cannot retrieve" in response.answer
+
