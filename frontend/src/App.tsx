@@ -7,9 +7,9 @@ import { Layout } from './components/Layout';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DocumentsPage } from './pages/DocumentsPage';
+import { ChatPage } from './pages/ChatPage';
 
 // Placeholder view pages for router initialization
-const ChatPage = () => <div className="glass-card" style={{ padding: '2rem' }}><h2>Chat Q&A Console</h2><p style={{ color: '#94a3b8', marginTop: '0.5rem' }}>Ask grounded customer support questions using Enterprise RAG.</p></div>;
 const SearchPage = () => <div className="glass-card" style={{ padding: '2rem' }}><h2>Semantic Search</h2><p style={{ color: '#94a3b8', marginTop: '0.5rem' }}>Search vector embeddings across organizational knowledge.</p></div>;
 const ReportsPage = () => <div className="glass-card" style={{ padding: '2rem' }}><h2>Support Reports</h2><p style={{ color: '#94a3b8', marginTop: '0.5rem' }}>Generate structured summaries and analytics reports.</p></div>;
 
