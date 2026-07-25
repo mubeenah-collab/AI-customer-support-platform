@@ -16,6 +16,33 @@ def test_security_headers_middleware():
     assert response.headers.get("X-Frame-Options") == "DENY"
     assert response.headers.get("X-XSS-Protection") == "1; mode=block"
     assert "Strict-Transport-Security" in response.headers
+    assert response.headers.get("Content-Security-Policy") == "default-src 'self'; frame-ancestors 'none';"
+
+
+def test_csp_docs_route_when_enabled():
+    from backend.src.config.settings import settings
+    original_docs = settings.ENABLE_DOCS
+    try:
+        settings.ENABLE_DOCS = True
+        client = TestClient(app)
+        res = client.get("/docs")
+        assert res.status_code == 200
+        csp = res.headers.get("Content-Security-Policy", "")
+        assert "https://cdn.jsdelivr.net" in csp
+        assert "https://fastapi.tiangolo.com" in csp
+        assert "'unsafe-eval'" not in csp
+        assert "script-src *" not in csp
+    finally:
+        settings.ENABLE_DOCS = original_docs
+
+
+def test_strict_csp_on_api_endpoints():
+    client = TestClient(app)
+    res = client.get("/health")
+    csp = res.headers.get("Content-Security-Policy", "")
+    assert csp == "default-src 'self'; frame-ancestors 'none';"
+    assert "https://cdn.jsdelivr.net" not in csp
+
 
 
 def test_rate_limiter_middleware_throttling():
