@@ -53,3 +53,9 @@ def test_cors_origins_parsing():
     s = Settings(CORS_ORIGINS="http://localhost:3100, https://support.example.com")
     assert s.CORS_ORIGINS == ["http://localhost:3100", "https://support.example.com"]
 
+
+def test_enable_docs_setting():
+    s = Settings(ENABLE_DOCS=False)
+    assert s.ENABLE_DOCS is False
+
+

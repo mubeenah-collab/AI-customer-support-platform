@@ -28,10 +28,17 @@ if sys.version_info.major != TARGET_PYTHON_MAJOR or sys.version_info.minor != TA
         "Production deployments (Docker) MUST strictly run Python 3.12."
     )
 
+from backend.src.config.settings import settings
+
+show_docs = settings.ENABLE_DOCS or settings.APP_ENV.lower() != "production"
+
 app = FastAPI(
     title="AI Customer Support Platform API",
     description="Enterprise-grade RAG + LangGraph + CrewAI + Gemini Customer Support Platform",
     version="1.0.0",
+    docs_url="/docs" if show_docs else None,
+    redoc_url="/redoc" if show_docs else None,
+    openapi_url="/openapi.json" if show_docs else None,
 )
 
 # Register Global Exception Handlers

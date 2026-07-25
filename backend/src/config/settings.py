@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "AI Customer Support Platform"
     APP_ENV: str = "development"
     DEBUG: bool = True
+    ENABLE_DOCS: bool = True
     LOG_LEVEL: str = "INFO"
     PORT: int = 8000
     CORS_ORIGINS: List[str] = [
