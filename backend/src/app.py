@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.src.presentation.api.v1.auth_router import auth_router
+from backend.src.presentation.api.v1.chat_router import router as chat_router
 from backend.src.presentation.api.v1.document_router import document_router
 
 logger = logging.getLogger("app")
@@ -29,6 +30,7 @@ app = FastAPI(
 # Register API v1 Routers
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(document_router, prefix="/api/v1")
+app.include_router(chat_router, prefix="/api/v1")
 
 # CORS Middleware setup
 app.add_middleware(
