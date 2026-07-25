@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from backend.src.app import app
 from backend.src.infrastructure.database.base import Base
 from backend.src.infrastructure.database.session import get_async_db
+from backend.src.presentation.api.v1.document_router import get_session_factory
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -26,10 +27,17 @@ async def async_test_session():
 
 @pytest_asyncio.fixture
 async def async_client(async_test_session):
+    engine = async_test_session.bind
+    test_factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+
     async def override_get_db():
         yield async_test_session
 
+    def override_get_factory():
+        return test_factory
+
     app.dependency_overrides[get_async_db] = override_get_db
+    app.dependency_overrides[get_session_factory] = override_get_factory
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client

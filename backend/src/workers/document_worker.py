@@ -1,0 +1,97 @@
+import logging
+from pathlib import Path
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from backend.src.ai.rag.text_splitter import DocumentTextSplitter
+from backend.src.domain.entities.chunk import Chunk
+from backend.src.domain.entities.document import Document
+from backend.src.infrastructure.storage.loaders.document_loader_factory import DocumentLoaderFactory
+
+logger = logging.getLogger("document_worker")
+
+
+async def process_document_background(
+    document_id: str,
+    base_dir: Path,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> bool:
+    """Background worker task processing uploaded document: loader -> clean -> chunk -> DB save."""
+    async with session_factory() as session:
+        # Fetch document
+        stmt = select(Document).where(Document.id == document_id)
+        result = await session.execute(stmt)
+        doc = result.scalars().first()
+
+        if not doc:
+            logger.error(f"Document worker error: Document '{document_id}' not found.")
+            return False
+
+        try:
+            # Update status to processing
+            doc.status = "processing"
+            await session.commit()
+
+            # Resolve physical file path safely
+            rel_path = Path(doc.file_path)
+            if rel_path.is_absolute():
+                full_file_path = rel_path
+            elif rel_path.parts and rel_path.parts[0] == base_dir.name:
+                full_file_path = (base_dir.parent / rel_path).resolve()
+            else:
+                full_file_path = (base_dir / rel_path).resolve()
+
+            if not full_file_path.exists():
+                raise FileNotFoundError(f"File not found on disk at '{full_file_path}'.")
+
+            # Extract raw chunks via strategy factory
+            extracted_chunks = DocumentLoaderFactory.load_document(full_file_path)
+
+            text_splitter = DocumentTextSplitter(chunk_size=1000, chunk_overlap=150)
+            chunk_records: list[Chunk] = []
+            chunk_index = 0
+
+            for ext_chunk in extracted_chunks:
+                split_chunks = text_splitter.split_text(
+                    text=ext_chunk.content,
+                    page_number=ext_chunk.page_number,
+                    start_index=chunk_index,
+                )
+
+                for chunk_item in split_chunks:
+                    new_chunk = Chunk(
+                        document_id=doc.id,
+                        chunk_index=chunk_item.chunk_index,
+                        content=chunk_item.content,
+                        token_count=chunk_item.token_count,
+                        page_number=chunk_item.page_number,
+                        extra_metadata=ext_chunk.metadata,
+                    )
+                    chunk_records.append(new_chunk)
+                    chunk_index += 1
+
+            # Save chunks to PostgreSQL database
+            for c in chunk_records:
+                session.add(c)
+
+            doc.status = "completed"
+            doc.chunk_count = len(chunk_records)
+            await session.commit()
+
+            logger.info(f"Document worker success: Document '{document_id}' processed into {len(chunk_records)} chunks.")
+            return True
+
+        except Exception as e:
+            await session.rollback()
+            logger.exception(f"Document worker failed for document '{document_id}': {str(e)}")
+
+            # Update document to failed state
+            async with session_factory() as fail_session:
+                stmt_fail = select(Document).where(Document.id == document_id)
+                res_fail = await fail_session.execute(stmt_fail)
+                failed_doc = res_fail.scalars().first()
+                if failed_doc:
+                    failed_doc.status = "failed"
+                    failed_doc.error_message = str(e)
+                    await fail_session.commit()
+            return False

@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.src.application.services.document_service import DocumentService
 from backend.src.domain.entities.user import User
@@ -11,7 +11,7 @@ from backend.src.domain.exceptions.document_exceptions import (
     InvalidFileTypeError,
     PathTraversalError,
 )
-from backend.src.infrastructure.database.session import get_async_db
+from backend.src.infrastructure.database.session import AsyncSessionFactory, get_async_db
 from backend.src.infrastructure.repositories.document_repository import SQLAlchemyDocumentRepository
 from backend.src.infrastructure.storage.storage_service import StorageService
 from backend.src.presentation.api.v1.dependencies import get_current_active_user
@@ -20,8 +20,13 @@ from backend.src.presentation.schemas.document_schemas import (
     DocumentResponse,
     DocumentUploadResponse,
 )
+from backend.src.workers.document_worker import process_document_background
 
 document_router = APIRouter(prefix="/documents", tags=["Documents"])
+
+
+def get_session_factory() -> async_sessionmaker[AsyncSession]:
+    return AsyncSessionFactory
 
 
 def get_document_service(session: AsyncSession = Depends(get_async_db)) -> DocumentService:
@@ -32,21 +37,33 @@ def get_document_service(session: AsyncSession = Depends(get_async_db)) -> Docum
 
 @document_router.post("/upload", response_model=DocumentUploadResponse, status_code=status.HTTP_201_CREATED)
 async def upload_document(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     title: Optional[str] = Form(None),
     current_user: User = Depends(get_current_active_user),
     doc_service: DocumentService = Depends(get_document_service),
+    session_factory: async_sessionmaker[AsyncSession] = Depends(get_session_factory),
 ):
     """Upload a knowledge base document for background parsing and embedding."""
     try:
         content = await file.read()
-        return await doc_service.upload_document(
+        res = await doc_service.upload_document(
             user=current_user,
             filename=file.filename or "uploaded_file",
             content=content,
             content_type=file.content_type or "application/octet-stream",
             title=title,
         )
+
+        # Trigger background document processing task
+        background_tasks.add_task(
+            process_document_background,
+            document_id=res.document.id,
+            base_dir=doc_service.storage_service.base_dir,
+            session_factory=session_factory,
+        )
+
+        return res
     except InvalidFileTypeError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
     except FileTooLargeError as e:
