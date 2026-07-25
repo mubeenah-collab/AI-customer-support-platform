@@ -44,6 +44,12 @@ def test_validate_uploaded_file_oversized():
         validate_uploaded_file("huge.pdf", "application/pdf", oversized_bytes)
 
 
+def test_validate_uploaded_file_empty():
+    with pytest.raises(InvalidFileTypeError) as exc_info:
+        validate_uploaded_file("empty.pdf", "application/pdf", 0)
+    assert "cannot be empty" in str(exc_info.value)
+
+
 def test_validate_file_path_containment(tmp_path):
     base_dir = tmp_path / "uploads"
     base_dir.mkdir()

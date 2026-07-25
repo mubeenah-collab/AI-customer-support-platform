@@ -66,6 +66,10 @@ def validate_uploaded_file(
     if ext not in ALLOWED_EXTENSIONS:
         raise InvalidFileTypeError(f"Extension '{ext}' is not supported. Allowed: {list(ALLOWED_EXTENSIONS.keys())}")
 
+    # Empty file check
+    if file_size_bytes <= 0:
+        raise InvalidFileTypeError("File cannot be empty.")
+
     # File size validation
     max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
     if file_size_bytes > max_bytes:
