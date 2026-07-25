@@ -11,7 +11,7 @@ class SQLAlchemyReportRepository(SQLAlchemyBaseRepository[Report], IReportReposi
     """SQLAlchemy implementation of IReportRepository."""
 
     def __init__(self, session: AsyncSession):
-        super().__init__(session, Report)
+        super().__init__(Report, session)
 
     async def get_by_user_id(self, user_id: str) -> List[Report]:
         stmt = (

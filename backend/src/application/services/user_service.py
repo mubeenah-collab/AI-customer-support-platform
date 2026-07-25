@@ -42,4 +42,4 @@ class UserService:
         return await self.user_repo.update(user)
 
     async def list_users(self, skip: int = 0, limit: int = 50) -> List[User]:
-        return await self.user_repo.list(skip=skip, limit=limit)
+        return await self.user_repo.get_all(skip=skip, limit=limit)
