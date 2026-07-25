@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from backend.src.ai.llm.base_llm import ILLMService, LLMServiceError
 from backend.src.config.settings import settings
+from backend.src.presentation.schemas.ai_schemas import ComparisonResponseSchema, SummaryResponseSchema
 
 logger = logging.getLogger("gemini_llm")
 
@@ -99,3 +100,24 @@ class GeminiLLMService(ILLMService):
         except Exception as e:
             logger.error(f"Gemini LLM stream error: {str(e)}")
             raise LLMServiceError(f"Gemini API error during streaming: {str(e)}") from e
+
+    def summarize_text(self, text: str) -> SummaryResponseSchema:
+        """Summarize text content using Gemini LLM."""
+        from backend.src.ai.prompts.summary_prompt import summary_prompt_template
+
+        prompt = summary_prompt_template.format(text_content=text)
+        return self.generate_structured(prompt, SummaryResponseSchema)
+
+    def compare_documents(self, doc_a: str, doc_b: str) -> ComparisonResponseSchema:
+        """Compare two documents using Gemini reasoning."""
+        from backend.src.ai.prompts.compare_prompt import compare_prompt_template
+
+        prompt = compare_prompt_template.format(doc_a=doc_a, doc_b=doc_b)
+        return self.generate_structured(prompt, ComparisonResponseSchema)
+
+    def generate_report(self, topic: str, context: str, chat_history: str = "") -> str:
+        """Generate structured support report using Gemini LLM."""
+        from backend.src.ai.prompts.report_prompt import report_prompt_template
+
+        prompt = report_prompt_template.format(topic=topic, context=context, chat_history=chat_history)
+        return self.generate(prompt)
