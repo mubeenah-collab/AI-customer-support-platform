@@ -1,6 +1,21 @@
+import sys
 import time
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+logger = logging.getLogger("app")
+
+# Enforce Python 3.12 Target Compatibility
+TARGET_PYTHON_MAJOR = 3
+TARGET_PYTHON_MINOR = 12
+
+if sys.version_info.major != TARGET_PYTHON_MAJOR or sys.version_info.minor != TARGET_PYTHON_MINOR:
+    logger.warning(
+        f"Python Version Mismatch: Platform target is Python {TARGET_PYTHON_MAJOR}.{TARGET_PYTHON_MINOR}, "
+        f"but current runtime environment is Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}. "
+        "Production deployments (Docker) MUST strictly run Python 3.12."
+    )
 
 app = FastAPI(
     title="AI Customer Support Platform API",
