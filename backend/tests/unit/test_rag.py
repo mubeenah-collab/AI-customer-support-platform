@@ -51,7 +51,7 @@ def test_context_building():
 
 def test_retriever_and_rag_pipeline():
     mock_embed = MagicMock()
-    mock_embed.embed_query.return_value = [0.1] * 768
+    mock_embed.embed_query.return_value = [0.1] * 3072
 
     mock_vstore = MagicMock()
     mock_vstore.similarity_search.return_value = [

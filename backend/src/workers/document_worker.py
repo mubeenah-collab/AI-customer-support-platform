@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from pathlib import Path
 from sqlalchemy import select
@@ -80,7 +81,7 @@ async def process_document_background(
             await session.commit()
 
             # Attempt Vector DB Indexing (Gemini Embeddings -> ChromaDB)
-            if chunk_records and settings.GOOGLE_API_KEY:
+            if chunk_records and (settings.GOOGLE_API_KEY or settings.GEMINI_API_KEY):
                 try:
                     from backend.src.ai.embeddings.gemini_embedding import GeminiEmbeddingService
                     from backend.src.ai.rag.base_vector_store import VectorChunk
@@ -129,3 +130,42 @@ async def process_document_background(
                     failed_doc.error_message = str(e)
                     await fail_session.commit()
             return False
+
+
+async def run_worker_daemon() -> None:
+    """Continuous background worker daemon polling database for pending documents."""
+    from backend.src.infrastructure.database.session import AsyncSessionFactory
+
+    base_dir = Path("uploads").resolve()
+    logger.info("Document worker daemon initialized. Polling database for pending documents...")
+
+    while True:
+        try:
+            async with AsyncSessionFactory() as session:
+                stmt = select(Document.id).where(Document.status == "pending")
+                result = await session.execute(stmt)
+                pending_ids = result.scalars().all()
+
+                if pending_ids:
+                    logger.info(f"Document worker found {len(pending_ids)} pending document(s). Processing...")
+                    for doc_id in pending_ids:
+                        await process_document_background(
+                            document_id=doc_id,
+                            base_dir=base_dir,
+                            session_factory=AsyncSessionFactory,
+                        )
+        except Exception as poll_err:
+            logger.error(f"Error in document worker polling loop: {str(poll_err)}")
+
+        await asyncio.sleep(5)
+
+
+if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
+    try:
+        asyncio.run(run_worker_daemon())
+    except KeyboardInterrupt:
+        logger.info("Document worker daemon stopped by user.")

@@ -6,7 +6,7 @@ from backend.src.config.settings import settings
 
 logger = logging.getLogger("gemini_embedding")
 
-GEMINI_EMBEDDING_DIMENSION = 768
+GEMINI_EMBEDDING_DIMENSION = 3072  # gemini-embedding-001 output dimension
 
 
 class GeminiEmbeddingService(IEmbeddingService):

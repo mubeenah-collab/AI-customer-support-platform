@@ -63,9 +63,9 @@ class Settings(BaseSettings):
     # Google Gemini AI
     GOOGLE_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
-    GEMINI_LLM_MODEL: str = "gemini-1.5-pro"
-    GEMINI_VISION_MODEL: str = "gemini-1.5-flash"
-    GEMINI_EMBEDDING_MODEL: str = "models/text-embedding-004"
+    GEMINI_LLM_MODEL: str = "gemini-2.0-flash"
+    GEMINI_VISION_MODEL: str = "gemini-2.0-flash"
+    GEMINI_EMBEDDING_MODEL: str = "models/gemini-embedding-001"
 
     def model_post_init(self, __context):
         if not self.GOOGLE_API_KEY and self.GEMINI_API_KEY:

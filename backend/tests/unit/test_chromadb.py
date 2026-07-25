@@ -9,8 +9,8 @@ def test_chroma_vector_store_add_search_delete():
     store = ChromaVectorStore(client=ephemeral_client)
 
     # 1. Add Chunks with orthogonal vectors
-    dummy_vec_1 = [1.0 if i < 384 else 0.0 for i in range(768)]
-    dummy_vec_2 = [0.0 if i < 384 else 1.0 for i in range(768)]
+    dummy_vec_1 = [1.0 if i < 1536 else 0.0 for i in range(3072)]
+    dummy_vec_2 = [0.0 if i < 1536 else 1.0 for i in range(3072)]
 
     chunks = [
         VectorChunk(

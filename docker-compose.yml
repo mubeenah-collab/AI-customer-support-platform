@@ -36,6 +36,12 @@ services:
     volumes:
       - ./uploads:/app/uploads
       - chroma_data:/app/.chroma
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,6 +61,12 @@ services:
     volumes:
       - ./uploads:/app/uploads
       - chroma_data:/app/.chroma
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,sys; pids=[p for p in os.listdir('/proc') if p.isdigit()]; sys.exit(0 if len(pids)>1 else 1)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
     depends_on:
       backend:
         condition: service_healthy
