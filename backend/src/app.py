@@ -50,12 +50,14 @@ app.include_router(health_router, prefix="/api/v1")
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimiterMiddleware, max_requests=120, window_seconds=60)
 
+from backend.src.config.settings import settings
+
 # CORS Middleware setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # To be restricted in production config
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
 )
 
