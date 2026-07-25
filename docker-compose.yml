@@ -79,6 +79,12 @@ services:
     restart: always
     ports:
       - "3100:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:80/"]
+      interval: 10s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
     depends_on:
       backend:
         condition: service_healthy
