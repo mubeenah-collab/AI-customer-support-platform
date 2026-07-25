@@ -4,6 +4,8 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.src.presentation.api.v1.auth_router import auth_router
+
 logger = logging.getLogger("app")
 
 # Enforce Python 3.12 Target Compatibility
@@ -22,6 +24,9 @@ app = FastAPI(
     description="Enterprise-grade RAG + LangGraph + CrewAI + Gemini Customer Support Platform",
     version="1.0.0",
 )
+
+# Register API v1 Routers
+app.include_router(auth_router, prefix="/api/v1")
 
 # CORS Middleware setup
 app.add_middleware(

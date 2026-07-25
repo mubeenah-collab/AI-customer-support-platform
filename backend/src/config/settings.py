@@ -32,7 +32,11 @@ class Settings(BaseSettings):
             if "postgresql+asyncpg://" in self.DATABASE_URL:
                 return self.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
             return self.DATABASE_URL
-        return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        try:
+            import psycopg2
+            return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        except ImportError:
+            return "sqlite:///./app.db"
 
     @property
     def async_database_url(self) -> str:
@@ -40,7 +44,11 @@ class Settings(BaseSettings):
             if "postgresql://" in self.DATABASE_URL and "+asyncpg" not in self.DATABASE_URL:
                 return self.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
             return self.DATABASE_URL
-        return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        try:
+            import asyncpg
+            return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        except ImportError:
+            return "sqlite+aiosqlite:///./app.db"
 
     # ChromaDB Vector Store
     CHROMA_HOST: str = "localhost"
