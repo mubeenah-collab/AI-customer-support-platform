@@ -37,8 +37,22 @@ class ChromaVectorStore(IVectorStore):
                     settings=ChromaSettings(anonymized_telemetry=False),
                 )
             except Exception as e:
-                logger.error(f"Failed to initialize ChromaDB PersistentClient: {str(e)}")
-                raise VectorStoreError(f"ChromaDB initialization failure: {str(e)}") from e
+                # ChromaDB Rust bindings can panic on stale/incompatible SQLite files (e.g. version mismatch).
+                # Fall back to an ephemeral in-memory client so the service degrades gracefully rather than
+                # crashing the process. A full rebuild of the persistent store can be triggered by deleting
+                # the .chroma directory and re-uploading documents.
+                logger.warning(
+                    f"ChromaDB PersistentClient failed ({type(e).__name__}: {str(e)}). "
+                    "Falling back to ephemeral in-memory client. "
+                    "Delete the .chroma directory and re-index documents to restore persistence."
+                )
+                try:
+                    self.client = chromadb.EphemeralClient(
+                        settings=ChromaSettings(anonymized_telemetry=False),
+                    )
+                except Exception as fallback_err:
+                    logger.error(f"ChromaDB EphemeralClient fallback also failed: {str(fallback_err)}")
+                    raise VectorStoreError(f"ChromaDB initialization failure: {str(e)}") from e
 
         try:
             self.collection = self.client.get_or_create_collection(

@@ -17,7 +17,8 @@ class GeminiEmbeddingService(IEmbeddingService):
         api_key: Optional[str] = None,
         model_name: Optional[str] = None,
     ):
-        self.api_key = api_key or settings.GOOGLE_API_KEY
+        # Use provided api_key; only fall back to settings when argument is None (not when explicitly empty).
+        self.api_key = settings.GOOGLE_API_KEY if api_key is None else api_key
         self.model_name = model_name or settings.GEMINI_EMBEDDING_MODEL
         self._embeddings_client: Optional[GoogleGenerativeAIEmbeddings] = None
 
