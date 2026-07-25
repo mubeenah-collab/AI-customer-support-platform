@@ -10,7 +10,12 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     LOG_LEVEL: str = "INFO"
     PORT: int = 8000
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:3100",
+        "http://127.0.0.1:3100",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
 
     # Security & JWT
     JWT_SECRET_KEY: str = "development-secret-key-change-in-production-32-bytes-min"
@@ -57,9 +62,16 @@ class Settings(BaseSettings):
 
     # Google Gemini AI
     GOOGLE_API_KEY: str = ""
+    GEMINI_API_KEY: str = ""
     GEMINI_LLM_MODEL: str = "gemini-1.5-pro"
     GEMINI_VISION_MODEL: str = "gemini-1.5-flash"
     GEMINI_EMBEDDING_MODEL: str = "models/text-embedding-004"
+
+    def model_post_init(self, __context):
+        if not self.GOOGLE_API_KEY and self.GEMINI_API_KEY:
+            self.GOOGLE_API_KEY = self.GEMINI_API_KEY
+        elif not self.GEMINI_API_KEY and self.GOOGLE_API_KEY:
+            self.GEMINI_API_KEY = self.GOOGLE_API_KEY
 
     # Storage
     UPLOAD_DIR: str = "uploads"

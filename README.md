@@ -66,7 +66,7 @@ c:/AI Customer Support platform/
 │   │   ├── monitoring/          # HealthService & Resource Metrics
 │   │   ├── presentation/        # FastAPI Routers, Schemas, Security & Rate-Limit Middleware
 │   │   └── workers/             # Background Document Ingestion Worker
-│   └── tests/                   # 73 Unit, Integration, Worker, and E2E Tests
+│   └── tests/                   # 74 Unit, Integration, Worker, and E2E Tests
 ├── frontend/
 │   ├── Dockerfile
 │   ├── nginx.conf
@@ -82,7 +82,7 @@ c:/AI Customer Support platform/
 
 ## 🚀 Quick Start Guide
 
-### Option 1: Run via Docker Compose (Recommended)
+### Option 1: Run via Docker Compose (Isolated Ports)
 
 1. Clone the repository:
    ```bash
@@ -90,20 +90,20 @@ c:/AI Customer Support platform/
    cd AI-customer-support-platform
    ```
 
-2. Copy `.env.example` to `.env` and set your `GEMINI_API_KEY`:
+2. Copy `.env.example` to `.env` and set your `GEMINI_API_KEY` or `GOOGLE_API_KEY`:
    ```bash
    cp .env.example .env
    ```
 
 3. Launch all services using Docker Compose:
    ```bash
-   docker-compose up --build -d
+   docker compose up --build -d
    ```
 
-4. Access the web applications:
-   - **React Frontend**: `http://localhost:3000`
-   - **FastAPI OpenAPI Docs**: `http://localhost:8000/docs`
-   - **System Health Metrics**: `http://localhost:8000/api/v1/health/metrics`
+4. Access the web applications (isolated host ports):
+   - **React Frontend**: `http://localhost:3100`
+   - **FastAPI OpenAPI Docs**: `http://localhost:8100/docs`
+   - **System Health Metrics**: `http://localhost:8100/api/v1/health/metrics`
 
 ---
 
@@ -125,7 +125,7 @@ pip install -r backend/requirements.txt
 alembic upgrade head
 
 # Start FastAPI dev server
-python -m uvicorn backend.src.app:app --reload --port 8000
+python -m uvicorn backend.src.app:app --reload --port 8100
 ```
 
 #### 2. Frontend Setup
@@ -134,16 +134,16 @@ cd frontend
 npm install
 npm run dev
 ```
-Open `http://localhost:3000` in your browser.
+Open `http://localhost:3100` in your browser.
 
 ---
 
 ## 🧪 Verification & Testing
 
-To execute all 73 automated unit, integration, RAG, CrewAI, LangGraph, API, and E2E tests:
+To execute all 74 automated unit, integration, RAG, CrewAI, LangGraph, API, and E2E tests using the Python 3.12 `.venv`:
 
 ```powershell
-$env:PYTHONPATH="c:\AI Customer Support platform"; python -m pytest backend/tests/
+.\.venv\Scripts\python.exe -m pytest backend/tests/
 ```
 
 To run frontend TypeScript build validation:

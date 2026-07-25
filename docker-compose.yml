@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -10,7 +8,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-customer_support}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:55432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -26,10 +24,11 @@ services:
     container_name: support_platform_backend
     restart: always
     ports:
-      - "8000:8000"
+      - "8100:8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-customer_support}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-${GEMINI_API_KEY}}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-${GOOGLE_API_KEY}}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-replace-this-with-a-secure-random-secret-key-in-production}
       - JWT_ALGORITHM=HS256
       - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=60
@@ -50,7 +49,8 @@ services:
     command: python -m backend.src.workers.document_worker
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-customer_support}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-${GEMINI_API_KEY}}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-${GOOGLE_API_KEY}}
       - CHROMA_DB_DIR=/app/.chroma
     volumes:
       - ./uploads:/app/uploads
@@ -66,7 +66,7 @@ services:
     container_name: support_platform_frontend
     restart: always
     ports:
-      - "3000:80"
+      - "3100:80"
     depends_on:
       backend:
         condition: service_healthy
