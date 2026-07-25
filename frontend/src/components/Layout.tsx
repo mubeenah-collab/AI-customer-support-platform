@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Bot, FileText, Search, BarChart2, User, LogOut } from 'lucide-react';
+import { Bot, FileText, Search, BarChart2, User, LogOut, Activity, Users, Settings } from 'lucide-react';
 
 export const Layout: React.FC = () => {
   const { user, logout } = useAuth();
@@ -12,6 +12,9 @@ export const Layout: React.FC = () => {
     { label: 'Documents', path: '/documents', icon: FileText },
     { label: 'Search', path: '/search', icon: Search },
     { label: 'Reports', path: '/reports', icon: BarChart2 },
+    { label: 'Dashboard', path: '/dashboard', icon: Activity },
+    { label: 'Users', path: '/users', icon: Users },
+    { label: 'Profile', path: '/profile', icon: Settings },
   ];
 
   return (
