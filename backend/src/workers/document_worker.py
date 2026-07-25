@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from backend.src.ai.rag.text_splitter import DocumentTextSplitter
+from backend.src.config.settings import settings
 from backend.src.domain.entities.chunk import Chunk
 from backend.src.domain.entities.document import Document
 from backend.src.infrastructure.storage.loaders.document_loader_factory import DocumentLoaderFactory
@@ -77,6 +78,39 @@ async def process_document_background(
             doc.status = "completed"
             doc.chunk_count = len(chunk_records)
             await session.commit()
+
+            # Attempt Vector DB Indexing (Gemini Embeddings -> ChromaDB)
+            if chunk_records and settings.GOOGLE_API_KEY:
+                try:
+                    from backend.src.ai.embeddings.gemini_embedding import GeminiEmbeddingService
+                    from backend.src.ai.rag.base_vector_store import VectorChunk
+                    from backend.src.ai.rag.chroma_vector_store import ChromaVectorStore
+                    from backend.src.workers.embedding_worker import generate_chunk_embeddings
+
+                    embed_service = GeminiEmbeddingService()
+                    chroma_store = ChromaVectorStore()
+
+                    chunk_tuples = [(c.id, c.content) for c in chunk_records]
+                    id_vector_list = generate_chunk_embeddings(chunk_tuples, embedding_service=embed_service)
+
+                    v_chunks = []
+                    for c, (c_id, vector) in zip(chunk_records, id_vector_list):
+                        v_chunks.append(
+                            VectorChunk(
+                                chunk_id=c.id,
+                                content=c.content,
+                                embedding=vector,
+                                document_id=doc.id,
+                                document_name=doc.filename,
+                                chunk_index=c.chunk_index,
+                                page_number=c.page_number,
+                            )
+                        )
+
+                    chroma_store.add_chunks(v_chunks)
+                    logger.info(f"Indexed {len(v_chunks)} chunks in ChromaDB for document '{document_id}'.")
+                except Exception as embed_err:
+                    logger.warning(f"Vector DB indexing skipped/failed for document '{document_id}': {str(embed_err)}")
 
             logger.info(f"Document worker success: Document '{document_id}' processed into {len(chunk_records)} chunks.")
             return True
