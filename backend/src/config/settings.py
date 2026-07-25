@@ -73,6 +73,13 @@ class Settings(BaseSettings):
         elif not self.GEMINI_API_KEY and self.GOOGLE_API_KEY:
             self.GEMINI_API_KEY = self.GOOGLE_API_KEY
 
+        if self.APP_ENV and self.APP_ENV.lower() == "production":
+            insecure_secret_keywords = ["development-secret-key", "replace-this-with-a-secure-random-secret-key", "change-in-production"]
+            if any(kw in self.JWT_SECRET_KEY for kw in insecure_secret_keywords):
+                raise ValueError("Production environment detected but JWT_SECRET_KEY is using a default development key. Set a secure secret key in .env.")
+            if not self.GOOGLE_API_KEY:
+                raise ValueError("Production environment detected but GOOGLE_API_KEY / GEMINI_API_KEY is not set.")
+
     # Storage
     UPLOAD_DIR: str = "uploads"
     MAX_UPLOAD_SIZE_MB: int = 20
