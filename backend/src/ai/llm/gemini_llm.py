@@ -5,6 +5,7 @@ from langchain_core.output_parsers import PydanticOutputParser
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel
 
+from backend.src.ai.gemini_retry import call_with_retry
 from backend.src.ai.llm.base_llm import ILLMService, LLMServiceError
 from backend.src.config.settings import settings
 from backend.src.presentation.schemas.ai_schemas import ComparisonResponseSchema, SummaryResponseSchema
@@ -23,7 +24,7 @@ class GeminiLLMService(ILLMService):
         model_name: Optional[str] = None,
         temperature: float = 0.2,
     ):
-        self.api_key = api_key or settings.GOOGLE_API_KEY
+        self.api_key = settings.GOOGLE_API_KEY if api_key is None else api_key
         self.model_name = model_name or settings.GEMINI_LLM_MODEL
         self.temperature = temperature
         self._llm_client: Optional[ChatGoogleGenerativeAI] = None
@@ -64,13 +65,15 @@ class GeminiLLMService(ILLMService):
         messages.append(HumanMessage(content=prompt))
 
         try:
-            response = client.invoke(messages)
+            response = call_with_retry(client.invoke, messages)
             if not response or not response.content:
                 raise LLMServiceError("Gemini API returned empty response.")
             return str(response.content)
+        except LLMServiceError:
+            raise
         except Exception as e:
-            logger.error(f"Gemini LLM generate error: {str(e)}")
-            raise LLMServiceError(f"Gemini API error during generation: {str(e)}") from e
+            logger.error("Gemini LLM generate error: %s", type(e).__name__)
+            raise LLMServiceError(f"Gemini API error during generation: {type(e).__name__}") from e
 
     def generate_structured(self, prompt: str, response_schema: Type[T]) -> T:
         """Generate structured Pydantic output using PydanticOutputParser."""
@@ -94,12 +97,16 @@ class GeminiLLMService(ILLMService):
 
         client = self._get_client()
         try:
-            for chunk in client.stream([HumanMessage(content=prompt)]):
+            # Streaming is not retried mid-stream to avoid duplicate content;
+            # the initial connection attempt uses retry.
+            for chunk in call_with_retry(client.stream, [HumanMessage(content=prompt)]):
                 if chunk and chunk.content:
                     yield str(chunk.content)
+        except LLMServiceError:
+            raise
         except Exception as e:
-            logger.error(f"Gemini LLM stream error: {str(e)}")
-            raise LLMServiceError(f"Gemini API error during streaming: {str(e)}") from e
+            logger.error("Gemini LLM stream error: %s", type(e).__name__)
+            raise LLMServiceError(f"Gemini API error during streaming: {type(e).__name__}") from e
 
     def summarize_text(self, text: str) -> SummaryResponseSchema:
         """Summarize text content using Gemini LLM."""

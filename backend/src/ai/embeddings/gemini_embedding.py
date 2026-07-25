@@ -1,6 +1,7 @@
 import logging
 from typing import List, Optional
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from backend.src.ai.gemini_retry import call_with_retry
 from backend.src.ai.embeddings.base_embedding import EmbeddingServiceError, IEmbeddingService
 from backend.src.config.settings import settings
 
@@ -55,13 +56,15 @@ class GeminiEmbeddingService(IEmbeddingService):
 
         client = self._get_client()
         try:
-            vector = client.embed_query(text)
+            vector = call_with_retry(client.embed_query, text)
             if not vector or len(vector) == 0:
                 raise EmbeddingServiceError("Gemini API returned empty embedding vector.")
             return vector
+        except EmbeddingServiceError:
+            raise
         except Exception as e:
-            logger.error(f"Gemini embed_query failure: {str(e)}")
-            raise EmbeddingServiceError(f"Gemini API error during embed_query: {str(e)}") from e
+            logger.error("Gemini embed_query failure: %s", type(e).__name__)
+            raise EmbeddingServiceError(f"Gemini API error during embed_query: {type(e).__name__}") from e
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         """Generate embedding vectors for a batch of document chunk texts using Gemini."""
@@ -70,10 +73,12 @@ class GeminiEmbeddingService(IEmbeddingService):
 
         client = self._get_client()
         try:
-            vectors = client.embed_documents(texts)
+            vectors = call_with_retry(client.embed_documents, texts)
             if not vectors or len(vectors) != len(texts):
                 raise EmbeddingServiceError("Gemini API returned mismatched number of embedding vectors.")
             return vectors
+        except EmbeddingServiceError:
+            raise
         except Exception as e:
-            logger.error(f"Gemini embed_documents failure: {str(e)}")
-            raise EmbeddingServiceError(f"Gemini API error during embed_documents: {str(e)}") from e
+            logger.error("Gemini embed_documents failure: %s", type(e).__name__)
+            raise EmbeddingServiceError(f"Gemini API error during embed_documents: {type(e).__name__}") from e

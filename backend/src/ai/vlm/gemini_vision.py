@@ -8,6 +8,7 @@ import io
 from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 
+from backend.src.ai.gemini_retry import call_with_retry
 from backend.src.ai.prompts.vision_prompt import vision_prompt_template
 from backend.src.ai.vlm.base_vlm import IVisionService, VisionAnalysisResult, VisionServiceError
 from backend.src.config.settings import settings
@@ -23,7 +24,7 @@ class GeminiVisionService(IVisionService):
         api_key: Optional[str] = None,
         model_name: Optional[str] = None,
     ):
-        self.api_key = api_key or settings.GOOGLE_API_KEY
+        self.api_key = settings.GOOGLE_API_KEY if api_key is None else api_key
         self.model_name = model_name or settings.GEMINI_VISION_MODEL
         self._vlm_client: Optional[ChatGoogleGenerativeAI] = None
 
@@ -83,7 +84,7 @@ class GeminiVisionService(IVisionService):
 
         client = self._get_client()
         try:
-            response = client.invoke([multimodal_message])
+            response = call_with_retry(client.invoke, [multimodal_message])
             if not response or not response.content:
                 raise VisionServiceError("Gemini Vision returned an empty response.")
 
@@ -107,9 +108,11 @@ class GeminiVisionService(IVisionService):
                 confidence=0.95,
                 metadata={"width": width, "height": height, "format": img_format, "mime_type": mime_type},
             )
+        except VisionServiceError:
+            raise
         except Exception as e:
-            logger.error(f"Gemini Vision API failure: {str(e)}")
-            raise VisionServiceError(f"Gemini Vision error: {str(e)}") from e
+            logger.error("Gemini Vision API failure: %s", type(e).__name__)
+            raise VisionServiceError(f"Gemini Vision error: {type(e).__name__}") from e
 
     def analyze_image_path(
         self,
