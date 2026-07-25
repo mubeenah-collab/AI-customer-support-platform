@@ -9,6 +9,7 @@ from backend.src.presentation.api.v1.chat_router import router as chat_router
 from backend.src.presentation.api.v1.document_router import document_router
 from backend.src.presentation.api.v1.report_router import router as report_router
 from backend.src.presentation.api.v1.search_router import router as search_router
+from backend.src.presentation.api.v1.user_router import router as user_router
 
 logger = logging.getLogger("app")
 
@@ -35,6 +36,7 @@ app.include_router(document_router, prefix="/api/v1")
 app.include_router(chat_router, prefix="/api/v1")
 app.include_router(search_router, prefix="/api/v1")
 app.include_router(report_router, prefix="/api/v1")
+app.include_router(user_router, prefix="/api/v1")
 
 # CORS Middleware setup
 app.add_middleware(

@@ -39,3 +39,10 @@ class TokenExpiredError(AuthException):
 
     def __init__(self, message: str = "Token has expired"):
         super().__init__(message)
+
+
+class UserNotFoundError(AuthException):
+    """Raised when a user ID or email is not found."""
+
+    def __init__(self, user_id: str):
+        super().__init__(f"User '{user_id}' was not found.")
