@@ -11,6 +11,9 @@ from backend.src.presentation.api.v1.health_router import router as health_route
 from backend.src.presentation.api.v1.report_router import router as report_router
 from backend.src.presentation.api.v1.search_router import router as search_router
 from backend.src.presentation.api.v1.user_router import router as user_router
+from backend.src.presentation.middleware.exception_handler import register_exception_handlers
+from backend.src.presentation.middleware.rate_limiter import RateLimiterMiddleware
+from backend.src.presentation.middleware.security_headers import SecurityHeadersMiddleware
 
 logger = logging.getLogger("app")
 
@@ -31,6 +34,9 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# Register Global Exception Handlers
+register_exception_handlers(app)
+
 # Register API v1 Routers
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(document_router, prefix="/api/v1")
@@ -39,6 +45,10 @@ app.include_router(search_router, prefix="/api/v1")
 app.include_router(report_router, prefix="/api/v1")
 app.include_router(user_router, prefix="/api/v1")
 app.include_router(health_router, prefix="/api/v1")
+
+# Register Custom Security & Rate Limiting Middleware
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RateLimiterMiddleware, max_requests=120, window_seconds=60)
 
 # CORS Middleware setup
 app.add_middleware(
