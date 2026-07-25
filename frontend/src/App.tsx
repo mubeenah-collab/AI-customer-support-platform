@@ -9,9 +9,7 @@ import { RegisterPage } from './pages/RegisterPage';
 import { DocumentsPage } from './pages/DocumentsPage';
 import { ChatPage } from './pages/ChatPage';
 import { SearchPage } from './pages/SearchPage';
-
-// Placeholder view pages for router initialization
-const ReportsPage = () => <div className="glass-card" style={{ padding: '2rem' }}><h2>Support Reports</h2><p style={{ color: '#94a3b8', marginTop: '0.5rem' }}>Generate structured summaries and analytics reports.</p></div>;
+import { ReportsPage } from './pages/ReportsPage';
 
 export const App: React.FC = () => {
   return (
