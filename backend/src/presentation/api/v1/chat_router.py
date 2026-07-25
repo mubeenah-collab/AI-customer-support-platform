@@ -1,6 +1,8 @@
+import json
 import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.src.ai.embeddings.gemini_embedding import GeminiEmbeddingService
@@ -158,3 +160,35 @@ async def delete_conversation(
         )
     except ConversationNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.post(
+    "/stream",
+    summary="Stream AI customer support response via Server-Sent Events (SSE)",
+)
+async def stream_chat_message(
+    payload: ChatMessageRequest,
+    current_user: User = Depends(get_current_active_user),
+    chat_service: ChatService = Depends(get_chat_service),
+):
+    """Stream response tokens using Server-Sent Events (media_type='text/event-stream')."""
+    if not payload.query or not payload.query.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Field 'query' is required.",
+        )
+
+    async def sse_event_generator():
+        try:
+            yield f"data: {json.dumps({'type': 'start', 'status': 'connected'})}\n\n"
+            for chunk in chat_service.llm_service.stream(payload.query.strip()):
+                if chunk:
+                    data = json.dumps({"type": "chunk", "content": chunk})
+                    yield f"data: {data}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'status': 'completed'})}\n\n"
+        except Exception as e:
+            logger.error(f"SSE streaming exception: {type(e).__name__} - {str(e)}")
+            err_data = json.dumps({"type": "error", "message": "Streaming error occurred"})
+            yield f"data: {err_data}\n\n"
+
+    return StreamingResponse(sse_event_generator(), media_type="text/event-stream")

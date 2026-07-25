@@ -74,3 +74,27 @@ def test_list_conversations_authenticated(mock_active_user):
     data = response.json()
     assert data["total"] == 1
     assert data["items"][0]["id"] == "conv_1"
+
+
+def test_stream_chat_message_sse(mock_active_user):
+    mock_service = MagicMock()
+    mock_llm = MagicMock()
+    mock_llm.stream.return_value = ["Hello ", "streaming ", "world!"]
+    mock_service.llm_service = mock_llm
+
+    app.dependency_overrides[get_current_active_user] = lambda: mock_active_user
+    app.dependency_overrides[get_chat_service] = lambda: mock_service
+
+    client = TestClient(app)
+    response = client.post("/api/v1/chat/stream", json={"query": "Hello stream"})
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers["content-type"]
+    body = response.text
+    assert "data: {\"type\": \"start\"" in body
+    assert "Hello " in body
+    assert "streaming " in body
+    assert "data: {\"type\": \"done\"" in body
+
