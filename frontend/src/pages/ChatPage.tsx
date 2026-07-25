@@ -14,18 +14,23 @@ export const ChatPage: React.FC = () => {
   const fetchConversations = async () => {
     try {
       const res = await apiClient.get('/chat/conversations');
-      setConversations(res.data.items || res.data || []);
+      const data = res.data;
+      const list = Array.isArray(data) ? data : (data?.conversations || data?.items || []);
+      setConversations(Array.isArray(list) ? list : []);
     } catch (err) {
       console.error('Failed to fetch conversations:', err);
+      setConversations([]);
     }
   };
 
   const fetchMessages = async (convId: string) => {
     try {
       const res = await apiClient.get(`/chat/conversations/${convId}/messages`);
-      const items = res.data.items || res.data || [];
+      const data = res.data;
+      const rawItems = Array.isArray(data) ? data : (data?.messages || data?.items || []);
+      const safeItems = Array.isArray(rawItems) ? rawItems : [];
       setMessages(
-        items.map((m: any) => ({
+        safeItems.map((m: any) => ({
           id: m.id,
           sender: m.role === 'user' ? 'user' : 'assistant',
           content: m.content,
@@ -36,6 +41,7 @@ export const ChatPage: React.FC = () => {
       );
     } catch (err) {
       console.error('Failed to fetch messages:', err);
+      setMessages([]);
     }
   };
 

@@ -8,16 +8,17 @@ interface ReportListProps {
 }
 
 export const ReportList: React.FC<ReportListProps> = ({ reports, onSelectReport }) => {
-  if (reports.length === 0) return null;
+  const safeReports = Array.isArray(reports) ? reports : [];
+  if (safeReports.length === 0) return null;
 
   return (
     <div className="glass-card" style={{ padding: '1.5rem' }}>
       <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f8fafc', marginBottom: '1rem' }}>
-        Generated Report History ({reports.length})
+        Generated Report History ({safeReports.length})
       </h3>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        {reports.map((rep, idx) => (
+        {safeReports.map((rep, idx) => (
           <div
             key={rep.id || idx}
             onClick={() => onSelectReport(rep)}

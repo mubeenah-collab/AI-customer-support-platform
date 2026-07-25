@@ -10,9 +10,12 @@ export const DocumentsPage: React.FC = () => {
   const fetchDocuments = async () => {
     try {
       const res = await apiClient.get('/documents');
-      setDocuments(res.data.items || res.data || []);
+      const data = res.data;
+      const docList = Array.isArray(data) ? data : (data?.documents || data?.items || []);
+      setDocuments(Array.isArray(docList) ? docList : []);
     } catch (err) {
       console.error('Failed to fetch documents:', err);
+      setDocuments([]);
     } finally {
       setIsLoading(false);
     }

@@ -57,7 +57,9 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onDocumen
     }
   };
 
-  if (documents.length === 0) {
+  const safeDocs = Array.isArray(documents) ? documents : [];
+
+  if (safeDocs.length === 0) {
     return (
       <div className="glass-card" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>
         <FileText size={48} color="#475569" style={{ margin: '0 auto 1rem' }} />
@@ -70,7 +72,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onDocumen
   return (
     <div className="glass-card" style={{ padding: '1.5rem', overflowX: 'auto' }}>
       <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f8fafc', marginBottom: '1rem' }}>
-        Knowledge Base Collection ({documents.length})
+        Knowledge Base Collection ({safeDocs.length})
       </h3>
 
       <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
@@ -84,7 +86,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onDocumen
           </tr>
         </thead>
         <tbody>
-          {documents.map((doc) => (
+          {safeDocs.map((doc) => (
             <tr key={doc.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: '#e2e8f0' }}>
               <td style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 500 }}>
                 <FileText size={20} color="#818cf8" />

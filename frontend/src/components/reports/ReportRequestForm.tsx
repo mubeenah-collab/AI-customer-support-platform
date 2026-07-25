@@ -28,11 +28,14 @@ export const ReportRequestForm: React.FC<ReportRequestFormProps> = ({
     const fetchDocs = async () => {
       try {
         const res = await apiClient.get('/documents');
-        const docs = res.data.items || res.data || [];
-        setDocuments(docs);
-        if (docs.length > 0) setSelectedDocId(docs[0].id);
+        const data = res.data;
+        const docsList = Array.isArray(data) ? data : (data?.documents || data?.items || []);
+        const safeList = Array.isArray(docsList) ? docsList : [];
+        setDocuments(safeList);
+        if (safeList.length > 0) setSelectedDocId(safeList[0].id);
       } catch (err) {
         console.error('Failed to load documents for report request:', err);
+        setDocuments([]);
       }
     };
     fetchDocs();
@@ -71,6 +74,8 @@ export const ReportRequestForm: React.FC<ReportRequestFormProps> = ({
       setIsLoading(false);
     }
   };
+
+  const safeDocs = Array.isArray(documents) ? documents : [];
 
   return (
     <div className="glass-card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
@@ -136,12 +141,12 @@ export const ReportRequestForm: React.FC<ReportRequestFormProps> = ({
               className="input-field"
               value={selectedDocId}
               onChange={(e) => setSelectedDocId(e.target.value)}
-              disabled={documents.length === 0}
+              disabled={safeDocs.length === 0}
             >
-              {documents.length === 0 ? (
+              {safeDocs.length === 0 ? (
                 <option value="">No documents available. Upload documents first.</option>
               ) : (
-                documents.map((doc) => (
+                safeDocs.map((doc) => (
                   <option key={doc.id} value={doc.id}>
                     {doc.filename}
                   </option>

@@ -44,12 +44,16 @@ export const ConversationList: React.FC<ConversationListProps> = ({
       </button>
 
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.375rem', marginTop: '0.5rem' }}>
-        {conversations.length === 0 ? (
-          <p style={{ color: '#64748b', fontSize: '0.8125rem', textAlign: 'center', marginTop: '2rem' }}>
-            No previous chats
-          </p>
-        ) : (
-          conversations.map((conv) => {
+        {(() => {
+          const safeConvs = Array.isArray(conversations) ? conversations : [];
+          if (safeConvs.length === 0) {
+            return (
+              <p style={{ color: '#64748b', fontSize: '0.8125rem', textAlign: 'center', marginTop: '2rem' }}>
+                No previous chats
+              </p>
+            );
+          }
+          return safeConvs.map((conv) => {
             const isActive = conv.id === activeConversationId;
             return (
               <div
@@ -88,8 +92,8 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                 </button>
               </div>
             );
-          })
-        )}
+          });
+        })()}
       </div>
     </div>
   );

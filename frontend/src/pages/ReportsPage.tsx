@@ -12,10 +12,12 @@ export const ReportsPage: React.FC = () => {
   const fetchReports = async () => {
     try {
       const res = await apiClient.get('/reports');
-      const items = res.data.items || res.data || [];
-      setReports(items);
+      const data = res.data;
+      const items = Array.isArray(data) ? data : (data?.items || data?.reports || []);
+      setReports(Array.isArray(items) ? items : []);
     } catch (err) {
       console.error('Failed to fetch report history:', err);
+      setReports([]);
     }
   };
 

@@ -25,7 +25,9 @@ export const SearchPage: React.FC = () => {
         top_k: topK,
       });
 
-      setResults(res.data.results || res.data.items || res.data || []);
+      const data = res.data;
+      const list = Array.isArray(data) ? data : (data?.results || data?.items || []);
+      setResults(Array.isArray(list) ? list : []);
     } catch (err) {
       console.error('Knowledge search failed:', err);
       setResults([]);
@@ -56,24 +58,31 @@ export const SearchPage: React.FC = () => {
         isLoading={isLoading}
       />
 
-      {hasSearched && (
-        <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#94a3b8', fontSize: '0.875rem' }}>
-          <span>Search Results ({results.length})</span>
-          <span>Mode: <strong style={{ color: '#818cf8', textTransform: 'capitalize' }}>{searchMode}</strong></span>
-        </div>
-      )}
+      {(() => {
+        const safeResults = Array.isArray(results) ? results : [];
+        return (
+          <>
+            {hasSearched && (
+              <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#94a3b8', fontSize: '0.875rem' }}>
+                <span>Search Results ({safeResults.length})</span>
+                <span>Mode: <strong style={{ color: '#818cf8', textTransform: 'capitalize' }}>{searchMode}</strong></span>
+              </div>
+            )}
 
-      {results.map((res, idx) => (
-        <SearchResultCard key={res.chunk_id || idx} result={res} />
-      ))}
+            {safeResults.map((res, idx) => (
+              <SearchResultCard key={res.chunk_id || idx} result={res} />
+            ))}
 
-      {hasSearched && results.length === 0 && !isLoading && (
-        <div className="glass-card" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>
-          <SearchIcon size={48} color="#475569" style={{ margin: '0 auto 1rem' }} />
-          <h4 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.5rem' }}>No Matches Found</h4>
-          <p style={{ fontSize: '0.875rem' }}>Try broadening your query keywords or switching between Semantic and Hybrid search modes.</p>
-        </div>
-      )}
+            {hasSearched && safeResults.length === 0 && !isLoading && (
+              <div className="glass-card" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>
+                <SearchIcon size={48} color="#475569" style={{ margin: '0 auto 1rem' }} />
+                <h4 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.5rem' }}>No Matches Found</h4>
+                <p style={{ fontSize: '0.875rem' }}>Try broadening your query keywords or switching between Semantic and Hybrid search modes.</p>
+              </div>
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 };

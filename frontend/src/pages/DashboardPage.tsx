@@ -98,34 +98,47 @@ export const DashboardPage: React.FC = () => {
         </h3>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {readiness?.components.map((comp, idx) => (
-            <div
-              key={idx}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '1rem 1.25rem',
-                borderRadius: '0.75rem',
-                backgroundColor: 'rgba(15, 23, 42, 0.6)',
-                border: '1px solid rgba(255, 255, 255, 0.05)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <Database size={20} color="#818cf8" />
-                <div>
-                  <p style={{ fontWeight: 600, color: '#f8fafc', textTransform: 'capitalize' }}>
-                    {comp.name.replace('_', ' ')}
-                  </p>
-                  {comp.details && <p style={{ fontSize: '0.75rem', color: '#64748b' }}>{comp.details}</p>}
-                </div>
-              </div>
+          {(() => {
+            const raw = readiness?.components;
+            const componentsList: ComponentHealth[] = !raw
+              ? []
+              : Array.isArray(raw)
+              ? raw
+              : Object.entries(raw).map(([name, data]: [string, any]) => ({
+                  name,
+                  status: typeof data === 'string' ? data : data?.status || 'healthy',
+                  details: typeof data === 'object' ? data?.details || data?.error : undefined,
+                }));
 
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', padding: '0.25rem 0.75rem', borderRadius: '9999px', backgroundColor: comp.status === 'healthy' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: comp.status === 'healthy' ? '#4ade80' : '#f87171', fontSize: '0.75rem', fontWeight: 700 }}>
-                <CheckCircle2 size={14} /> {comp.status.toUpperCase()}
-              </span>
-            </div>
-          ))}
+            return componentsList.map((comp, idx) => (
+              <div
+                key={idx}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '1rem 1.25rem',
+                  borderRadius: '0.75rem',
+                  backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                  border: '1px solid rgba(255, 255, 255, 0.05)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <Database size={20} color="#818cf8" />
+                  <div>
+                    <p style={{ fontWeight: 600, color: '#f8fafc', textTransform: 'capitalize' }}>
+                      {comp.name.replace('_', ' ')}
+                    </p>
+                    {comp.details && <p style={{ fontSize: '0.75rem', color: '#64748b' }}>{comp.details}</p>}
+                  </div>
+                </div>
+
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', padding: '0.25rem 0.75rem', borderRadius: '9999px', backgroundColor: comp.status === 'healthy' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: comp.status === 'healthy' ? '#4ade80' : '#f87171', fontSize: '0.75rem', fontWeight: 700 }}>
+                  <CheckCircle2 size={14} /> {comp.status.toUpperCase()}
+                </span>
+              </div>
+            ));
+          })()}
         </div>
       </div>
     </div>

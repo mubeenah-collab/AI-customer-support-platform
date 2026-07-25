@@ -19,10 +19,14 @@ export const UsersPage: React.FC = () => {
   const fetchUsers = async () => {
     try {
       const res = await apiClient.get('/users');
-      setUsers(res.data.items || []);
-      setTotal(res.data.total || 0);
+      const data = res.data;
+      const list = Array.isArray(data) ? data : (data?.items || data?.users || []);
+      const safeList = Array.isArray(list) ? list : [];
+      setUsers(safeList);
+      setTotal(data?.total || safeList.length);
     } catch (err) {
       console.error('Failed to fetch user accounts:', err);
+      setUsers([]);
     } finally {
       setIsLoading(false);
     }
@@ -58,7 +62,7 @@ export const UsersPage: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {users.map((usr) => (
+            {(Array.isArray(users) ? users : []).map((usr) => (
               <tr key={usr.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: '#e2e8f0' }}>
                 <td style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

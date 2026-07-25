@@ -70,16 +70,20 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
           <div style={{ whiteSpace: 'pre-wrap' }}>{message.content}</div>
         </div>
 
-        {!isUser && message.citations && message.citations.length > 0 && (
-          <div style={{ marginTop: '0.75rem' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Grounded Sources ({message.citations.length})
-            </span>
-            {message.citations.map((citation, idx) => (
-              <SourceCitationCard key={idx} citation={citation} />
-            ))}
-          </div>
-        )}
+        {(() => {
+          const safeCitations = Array.isArray(message?.citations) ? message.citations : [];
+          if (isUser || safeCitations.length === 0) return null;
+          return (
+            <div style={{ marginTop: '0.75rem' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Grounded Sources ({safeCitations.length})
+              </span>
+              {safeCitations.map((citation, idx) => (
+                <SourceCitationCard key={idx} citation={citation} />
+              ))}
+            </div>
+          );
+        })()}
       </div>
 
       {isUser && (
