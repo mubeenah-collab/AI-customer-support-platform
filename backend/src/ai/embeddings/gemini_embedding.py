@@ -1,0 +1,78 @@
+import logging
+from typing import List, Optional
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from backend.src.ai.embeddings.base_embedding import EmbeddingServiceError, IEmbeddingService
+from backend.src.config.settings import settings
+
+logger = logging.getLogger("gemini_embedding")
+
+GEMINI_EMBEDDING_DIMENSION = 768
+
+
+class GeminiEmbeddingService(IEmbeddingService):
+    """Concrete implementation of IEmbeddingService using Google Gemini Embeddings."""
+
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model_name: Optional[str] = None,
+    ):
+        self.api_key = api_key or settings.GOOGLE_API_KEY
+        self.model_name = model_name or settings.GEMINI_EMBEDDING_MODEL
+        self._embeddings_client: Optional[GoogleGenerativeAIEmbeddings] = None
+
+        if self.api_key:
+            try:
+                self._embeddings_client = GoogleGenerativeAIEmbeddings(
+                    model=self.model_name,
+                    google_api_key=self.api_key,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to initialize Gemini Embeddings client: {str(e)}")
+
+    @property
+    def dimension(self) -> int:
+        return GEMINI_EMBEDDING_DIMENSION
+
+    def _get_client(self) -> GoogleGenerativeAIEmbeddings:
+        if not self._embeddings_client:
+            if not self.api_key:
+                raise EmbeddingServiceError("Google API Key is missing. Set GOOGLE_API_KEY environment variable.")
+            try:
+                self._embeddings_client = GoogleGenerativeAIEmbeddings(
+                    model=self.model_name,
+                    google_api_key=self.api_key,
+                )
+            except Exception as e:
+                raise EmbeddingServiceError(f"Initialization error: {str(e)}") from e
+        return self._embeddings_client
+
+    def embed_query(self, text: str) -> List[float]:
+        """Generate embedding vector for a single query text using Gemini."""
+        if not text or not text.strip():
+            raise EmbeddingServiceError("Cannot embed empty text query.")
+
+        client = self._get_client()
+        try:
+            vector = client.embed_query(text)
+            if not vector or len(vector) == 0:
+                raise EmbeddingServiceError("Gemini API returned empty embedding vector.")
+            return vector
+        except Exception as e:
+            logger.error(f"Gemini embed_query failure: {str(e)}")
+            raise EmbeddingServiceError(f"Gemini API error during embed_query: {str(e)}") from e
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        """Generate embedding vectors for a batch of document chunk texts using Gemini."""
+        if not texts:
+            return []
+
+        client = self._get_client()
+        try:
+            vectors = client.embed_documents(texts)
+            if not vectors or len(vectors) != len(texts):
+                raise EmbeddingServiceError("Gemini API returned mismatched number of embedding vectors.")
+            return vectors
+        except Exception as e:
+            logger.error(f"Gemini embed_documents failure: {str(e)}")
+            raise EmbeddingServiceError(f"Gemini API error during embed_documents: {str(e)}") from e
