@@ -1,33 +1,44 @@
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Bot, FileText, Search, BarChart2, User, LogOut, Activity, Users, Settings } from 'lucide-react';
+import { Bot, FileText, Search, BarChart2, User, LogOut, Activity, Users, Settings, Ticket, History } from 'lucide-react';
 
 export const Layout: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
   const location = useLocation();
 
-  const navItems = [
-    { label: 'Chat Q&A', path: '/chat', icon: Bot },
-    { label: 'Documents', path: '/documents', icon: FileText },
-    { label: 'Search', path: '/search', icon: Search },
-    { label: 'Reports', path: '/reports', icon: BarChart2 },
-    { label: 'Dashboard', path: '/dashboard', icon: Activity },
-    { label: 'Users', path: '/users', icon: Users },
-    { label: 'Profile', path: '/profile', icon: Settings },
+  const adminNavItems = [
+    { label: 'Dashboard', path: '/admin/dashboard', icon: Activity },
+    { label: 'Documents', path: '/admin/documents', icon: FileText },
+    { label: 'Search Console', path: '/admin/search', icon: Search },
+    { label: 'Reports & Analytics', path: '/admin/reports', icon: BarChart2 },
+    { label: 'Support Queue', path: '/admin/tickets', icon: Ticket },
+    { label: 'User Management', path: '/admin/users', icon: Users },
+    { label: 'System Settings', path: '/admin/settings', icon: Settings },
   ];
+
+  const customerNavItems = [
+    { label: 'AI Support Chat', path: '/customer/chat', icon: Bot },
+    { label: 'Support Tickets', path: '/customer/tickets', icon: Ticket },
+    { label: 'Chat History', path: '/customer/history', icon: History },
+    { label: 'My Profile', path: '/customer/profile', icon: Settings },
+  ];
+
+  const navItems = isAdmin ? adminNavItems : customerNavItems;
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#090d16' }}>
       {/* Sidebar Navigation */}
       <aside style={{ width: '260px', backgroundColor: 'rgba(15,23,42,0.8)', borderRight: '1px solid rgba(255,255,255,0.08)', padding: '1.5rem', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2.5rem' }}>
-          <div style={{ width: '40px', height: '40px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '40px', height: '40px', background: isAdmin ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'linear-gradient(135deg, #10b981, #06b6d4)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Bot size={24} color="#ffffff" />
           </div>
           <div>
             <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#f8fafc' }}>AI Support</h2>
-            <span style={{ fontSize: '0.75rem', color: '#6366f1', fontWeight: 600 }}>ENTERPRISE RAG</span>
+            <span style={{ fontSize: '0.75rem', color: isAdmin ? '#6366f1' : '#10b981', fontWeight: 600, textTransform: 'uppercase' }}>
+              {isAdmin ? 'Admin Portal' : 'Customer Portal'}
+            </span>
           </div>
         </div>
 
@@ -46,14 +57,14 @@ export const Layout: React.FC = () => {
                   padding: '0.75rem 1rem',
                   borderRadius: '0.75rem',
                   color: isActive ? '#ffffff' : '#94a3b8',
-                  background: isActive ? 'linear-gradient(90deg, rgba(99,102,241,0.2), rgba(139,92,246,0.1))' : 'transparent',
-                  border: isActive ? '1px solid rgba(99,102,241,0.3)' : '1px solid transparent',
+                  background: isActive ? (isAdmin ? 'linear-gradient(90deg, rgba(99,102,241,0.2), rgba(139,92,246,0.1))' : 'linear-gradient(90deg, rgba(16,185,129,0.2), rgba(6,182,212,0.1))') : 'transparent',
+                  border: isActive ? (isAdmin ? '1px solid rgba(99,102,241,0.3)' : '1px solid rgba(16,185,129,0.3)') : '1px solid transparent',
                   textDecoration: 'none',
                   fontWeight: isActive ? 600 : 500,
                   transition: 'all 0.2s ease',
                 }}
               >
-                <Icon size={20} color={isActive ? '#6366f1' : '#94a3b8'} />
+                <Icon size={20} color={isActive ? (isAdmin ? '#6366f1' : '#10b981') : '#94a3b8'} />
                 <span>{item.label}</span>
               </Link>
             );

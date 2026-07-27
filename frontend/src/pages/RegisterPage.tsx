@@ -8,6 +8,7 @@ export const RegisterPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [role, setRole] = useState<'customer' | 'admin'>('customer');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -35,8 +36,8 @@ export const RegisterPage: React.FC = () => {
 
     try {
       setIsSubmitting(true);
-      await register(email, password, fullName);
-      navigate('/chat');
+      await register(email, password, fullName, role);
+      navigate('/');
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Registration failed. Email may already be in use.');
     } finally {
@@ -125,6 +126,19 @@ export const RegisterPage: React.FC = () => {
                 required
               />
             </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#cbd5e1', marginBottom: '0.5rem' }}>Account Role</label>
+            <select
+              className="input-field"
+              value={role}
+              onChange={(e) => setRole(e.target.value as 'customer' | 'admin')}
+              style={{ paddingLeft: '1rem', backgroundColor: 'rgba(15, 23, 42, 0.6)', color: '#f8fafc' }}
+            >
+              <option value="customer" style={{ backgroundColor: '#0f172a', color: '#f8fafc' }}>Customer (End-User Portal)</option>
+              <option value="admin" style={{ backgroundColor: '#0f172a', color: '#f8fafc' }}>Administrator (Admin Portal)</option>
+            </select>
           </div>
 
           <button

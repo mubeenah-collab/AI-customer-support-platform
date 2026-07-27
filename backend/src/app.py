@@ -10,6 +10,7 @@ from backend.src.presentation.api.v1.document_router import document_router
 from backend.src.presentation.api.v1.health_router import router as health_router
 from backend.src.presentation.api.v1.report_router import router as report_router
 from backend.src.presentation.api.v1.search_router import router as search_router
+from backend.src.presentation.api.v1.ticket_router import ticket_router
 from backend.src.presentation.api.v1.user_router import router as user_router
 from backend.src.presentation.middleware.exception_handler import register_exception_handlers
 from backend.src.presentation.middleware.rate_limiter import RateLimiterMiddleware
@@ -44,14 +45,21 @@ app = FastAPI(
 # Register Global Exception Handlers
 register_exception_handlers(app)
 
-# Register API v1 Routers
-app.include_router(auth_router, prefix="/api/v1")
-app.include_router(document_router, prefix="/api/v1")
-app.include_router(chat_router, prefix="/api/v1")
-app.include_router(search_router, prefix="/api/v1")
-app.include_router(report_router, prefix="/api/v1")
-app.include_router(user_router, prefix="/api/v1")
-app.include_router(health_router, prefix="/api/v1")
+# Register API Routers (supports /api/v1, /api, and root prefixes)
+api_routers = [
+    auth_router,
+    document_router,
+    chat_router,
+    search_router,
+    report_router,
+    user_router,
+    ticket_router,
+    health_router,
+]
+
+for prefix in ["/api/v1", "/api", ""]:
+    for router in api_routers:
+        app.include_router(router, prefix=prefix)
 
 # Register Custom Security & Rate Limiting Middleware
 app.add_middleware(SecurityHeadersMiddleware)

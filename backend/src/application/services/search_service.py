@@ -94,3 +94,61 @@ class SearchService:
         final_items = scored_items[:top_k]
 
         return SearchResponse(query=query.strip(), results=final_items, total_results=len(final_items))
+
+    def inspect_retrieval(
+        self,
+        query: str,
+        top_k: int = 5,
+        score_threshold: float = 0.0,
+        filter_metadata: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        """Inspect raw vector distances, similarity match scores, formatted RAG prompt, and context token payload."""
+        from backend.src.presentation.schemas.search_schemas import RetrievalInspectorMatch, RetrievalInspectionResponse
+
+        search_res = self.semantic_search(
+            query=query,
+            top_k=top_k,
+            score_threshold=score_threshold,
+            filter_metadata=filter_metadata,
+        )
+
+        raw_matches: List[RetrievalInspectorMatch] = []
+        context_snippets: List[str] = []
+
+        for item in search_res.results:
+            sim = item.relevance_score
+            dist = max(0.0, round(1.0 - sim, 4))
+            match = RetrievalInspectorMatch(
+                chunk_id=item.chunk_id,
+                content_snippet=item.content[:200] + ("..." if len(item.content) > 200 else ""),
+                document_id=item.document_id,
+                document_name=item.document_name,
+                similarity_score=sim,
+                distance=dist,
+                relevance_percentage=item.relevance_percentage,
+                metadata=item.metadata or {},
+            )
+            raw_matches.append(match)
+            context_snippets.append(f"[Document: {item.document_name} | Chunk: {item.chunk_id}]\n{item.content}")
+
+        concat_context = "\n\n".join(context_snippets) if context_snippets else "NO_RETRIEVED_CONTEXT"
+        formatted_prompt = (
+            f"=== SYSTEM PROMPT ===\n"
+            f"You are a helpful, enterprise customer support assistant.\n"
+            f"Answer the user's question accurately using ONLY the provided context.\n\n"
+            f"=== CONTEXT PAYLOAD ({len(concat_context)} chars) ===\n"
+            f"{concat_context}\n\n"
+            f"=== USER QUERY ===\n"
+            f"{query}"
+        )
+
+        estimated_tokens = max(1, len(formatted_prompt) // 4)
+
+        return RetrievalInspectionResponse(
+            query=query,
+            total_chunks_retrieved=len(raw_matches),
+            raw_matches=raw_matches,
+            formatted_prompt=formatted_prompt,
+            context_window_length=len(formatted_prompt),
+            estimated_context_tokens=estimated_tokens,
+        )

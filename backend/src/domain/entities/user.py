@@ -25,6 +25,7 @@ class User(Base):
     conversations: Mapped[List["Conversation"]] = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
     reports: Mapped[List["Report"]] = relationship("Report", back_populates="creator", cascade="all, delete-orphan")
     sessions: Mapped[List["UserSession"]] = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
+    tickets: Mapped[List["SupportTicket"]] = relationship("SupportTicket", back_populates="user", cascade="all, delete-orphan")
 
     def __init__(
         self,

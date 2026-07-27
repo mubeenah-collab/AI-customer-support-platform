@@ -11,7 +11,7 @@ class SQLAlchemyMessageRepository(SQLAlchemyBaseRepository[Message], IMessageRep
     """SQLAlchemy implementation of IMessageRepository."""
 
     def __init__(self, session: AsyncSession):
-        super().__init__(session, Message)
+        super().__init__(Message, session)
 
     async def get_by_conversation_id(self, conversation_id: str) -> List[Message]:
         stmt = (

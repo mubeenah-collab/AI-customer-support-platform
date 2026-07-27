@@ -2,10 +2,15 @@ import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export const ProtectedRoute: React.FC = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+interface ProtectedRouteProps {
+  allowedRoles?: ('admin' | 'customer')[];
+  children?: React.ReactNode;
+}
 
-  if (isLoading) {
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, children }) => {
+  const { isAuthenticated, isLoading, user, isAdmin, token } = useAuth();
+
+  if (isLoading || (token && !user)) {
     return (
       <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', backgroundColor: '#090d16', color: '#f8fafc' }}>
         <div style={{ textAlign: 'center' }}>
@@ -16,5 +21,19 @@ export const ProtectedRoute: React.FC = () => {
     );
   }
 
-  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRoles && allowedRoles.length > 0) {
+    const userRole = user?.role?.toLowerCase() || 'customer';
+    const isAllowed = allowedRoles.includes(userRole as 'admin' | 'customer');
+
+    if (!isAllowed) {
+      // Redirect unauthorized user to their respective home dashboard
+      return <Navigate to={isAdmin ? '/admin/dashboard' : '/customer/chat'} replace />;
+    }
+  }
+
+  return children ? <>{children}</> : <Outlet />;
 };

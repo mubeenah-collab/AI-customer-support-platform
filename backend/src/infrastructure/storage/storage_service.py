@@ -63,3 +63,19 @@ class StorageService:
             return False
         except (PathTraversalError, Exception):
             return False
+
+    def get_file_path(self, relative_path: str) -> Path:
+        """Safely resolve and return existing file path given its relative path."""
+        rel = Path(relative_path)
+        if rel.is_absolute():
+            target_path = rel
+        elif rel.parts and rel.parts[0] == self.base_dir.name:
+            target_path = (self.base_dir.parent / rel).resolve()
+        else:
+            target_path = (self.base_dir / rel).resolve()
+
+        validated_path = validate_file_path_containment(target_path, self.base_dir)
+        if not validated_path.exists():
+            raise FileNotFoundError(f"File '{relative_path}' not found on storage.")
+        return validated_path
+

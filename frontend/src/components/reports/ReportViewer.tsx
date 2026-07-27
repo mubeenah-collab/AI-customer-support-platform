@@ -1,5 +1,6 @@
 import React from 'react';
-import { FileText, CheckCircle2, Calendar } from 'lucide-react';
+import { FileText, CheckCircle2, Calendar, Download } from 'lucide-react';
+import { apiClient } from '../../services/apiClient';
 
 export interface ReportContent {
   id?: string;
@@ -17,6 +18,24 @@ interface ReportViewerProps {
 
 export const ReportViewer: React.FC<ReportViewerProps> = ({ report }) => {
   if (!report) return null;
+
+  const handleDownloadPDF = async () => {
+    if (!report.id) return;
+    try {
+      const res = await apiClient.get(`/reports/${report.id}/export/pdf`, {
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `executive_report_${report.id.slice(0, 8)}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      alert('Failed to download PDF report.');
+    }
+  };
 
   return (
     <div className="glass-card" style={{ padding: '2rem', marginBottom: '2rem' }}>
@@ -37,9 +56,20 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report }) => {
           </div>
         </div>
 
-        <span style={{ padding: '0.25rem 0.75rem', borderRadius: '9999px', backgroundColor: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', fontSize: '0.75rem', fontWeight: 700 }}>
-          Grounded Gemini Output
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {report.id && (
+            <button
+              onClick={handleDownloadPDF}
+              className="btn-primary"
+              style={{ padding: '0.5rem 0.875rem', fontSize: '0.8125rem', gap: '0.375rem' }}
+            >
+              <Download size={15} /> Export PDF
+            </button>
+          )}
+          <span style={{ padding: '0.25rem 0.75rem', borderRadius: '9999px', backgroundColor: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', fontSize: '0.75rem', fontWeight: 700 }}>
+            Grounded Gemini Output
+          </span>
+        </div>
       </div>
 
       {report.summary && (

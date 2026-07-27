@@ -112,3 +112,13 @@ class ReportService:
         if not report or report.user_id != user_id:
             raise ReportNotFoundError(report_id)
         return report
+
+    async def export_report_pdf(self, user_id: str, report_id: str) -> bytes:
+        """Generate PDF binary stream export for executive support analytics report."""
+        from backend.src.application.services.pdf_generator import SimplePDFGenerator
+
+        report = await self.get_report_by_id(user_id, report_id)
+        return SimplePDFGenerator.generate_pdf(
+            title=report.title,
+            content=report.content,
+        )

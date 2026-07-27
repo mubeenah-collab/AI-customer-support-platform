@@ -28,3 +28,25 @@ class SearchResponse(BaseModel):
     total_results: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class RetrievalInspectorMatch(BaseModel):
+    chunk_id: str
+    content_snippet: str
+    document_id: str
+    document_name: str
+    similarity_score: float
+    distance: float
+    relevance_percentage: str
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class RetrievalInspectionResponse(BaseModel):
+    query: str
+    total_chunks_retrieved: int
+    raw_matches: List[RetrievalInspectorMatch]
+    formatted_prompt: str
+    context_window_length: int
+    estimated_context_tokens: int
+
+    model_config = ConfigDict(from_attributes=True)

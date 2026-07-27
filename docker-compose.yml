@@ -24,7 +24,7 @@ services:
     container_name: support_platform_backend
     restart: always
     ports:
-      - "8100:8000"
+      - "8000:8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-customer_support}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY:-${GEMINI_API_KEY}}

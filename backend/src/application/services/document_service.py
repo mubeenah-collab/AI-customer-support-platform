@@ -92,3 +92,15 @@ class DocumentService:
 
         # Delete database record
         return await self.document_repo.delete(document_id)
+
+    async def get_document_file(self, user: User, document_id: str) -> tuple[Path, str, str]:
+        doc = await self.document_repo.get_by_id(document_id)
+        if not doc:
+            raise DocumentNotFoundError(document_id)
+
+        if doc.user_id != user.id and user.role != "admin" and not user.is_superuser:
+            raise ForbiddenError("You do not have permission to download this document.")
+
+        file_path = self.storage_service.get_file_path(doc.file_path)
+        return file_path, doc.filename, doc.mime_type
+

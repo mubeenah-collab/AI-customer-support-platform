@@ -41,3 +41,20 @@ def test_document_loader_factory_txt(tmp_path: Path):
     extracted = DocumentLoaderFactory.load_document(file_path)
     assert len(extracted) == 1
     assert extracted[0].content == "Manual Content"
+
+
+def test_docx_document_loader(tmp_path: Path):
+    import docx
+    file_path = tmp_path / "sample.docx"
+    doc = docx.Document()
+    doc.add_paragraph("DOCX Paragraph Content for Testing")
+    table = doc.add_table(rows=1, cols=2)
+    table.cell(0, 0).text = "Cell A"
+    table.cell(0, 1).text = "Cell B"
+    doc.save(str(file_path))
+
+    extracted = DocumentLoaderFactory.load_document(file_path)
+    assert len(extracted) == 1
+    assert "DOCX Paragraph Content for Testing" in extracted[0].content
+    assert "Cell A | Cell B" in extracted[0].content
+

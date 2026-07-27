@@ -24,7 +24,7 @@ export const LoginPage: React.FC = () => {
     try {
       setIsSubmitting(true);
       await login(email, password);
-      navigate('/chat');
+      navigate('/');
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Invalid email or password. Please try again.');
     } finally {

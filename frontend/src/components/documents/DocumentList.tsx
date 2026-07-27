@@ -1,6 +1,7 @@
-import React from 'react';
-import { FileText, Trash2, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
+import React, { useState } from 'react';
+import { FileText, Trash2, CheckCircle2, Clock, AlertTriangle, Eye } from 'lucide-react';
 import { apiClient } from '../../services/apiClient';
+import { DocumentPreviewModal } from './DocumentPreviewModal';
 
 export interface DocumentItem {
   id: string;
@@ -17,7 +18,10 @@ interface DocumentListProps {
 }
 
 export const DocumentList: React.FC<DocumentListProps> = ({ documents, onDocumentDeleted }) => {
-  const handleDelete = async (docId: string) => {
+  const [selectedDoc, setSelectedDoc] = useState<DocumentItem | null>(null);
+
+  const handleDelete = async (docId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     if (!window.confirm('Are you sure you want to delete this document from the knowledge base?')) return;
     try {
       await apiClient.delete(`/documents/${docId}`);
@@ -70,46 +74,74 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onDocumen
   }
 
   return (
-    <div className="glass-card" style={{ padding: '1.5rem', overflowX: 'auto' }}>
-      <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f8fafc', marginBottom: '1rem' }}>
-        Knowledge Base Collection ({safeDocs.length})
-      </h3>
+    <>
+      <div className="glass-card" style={{ padding: '1.5rem', overflowX: 'auto' }}>
+        <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f8fafc', marginBottom: '1rem' }}>
+          Knowledge Base Collection ({safeDocs.length})
+        </h3>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
-        <thead>
-          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#64748b' }}>
-            <th style={{ padding: '0.75rem 1rem' }}>Document Name</th>
-            <th style={{ padding: '0.75rem 1rem' }}>Size</th>
-            <th style={{ padding: '0.75rem 1rem' }}>Chunks</th>
-            <th style={{ padding: '0.75rem 1rem' }}>Status</th>
-            <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {safeDocs.map((doc) => (
-            <tr key={doc.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: '#e2e8f0' }}>
-              <td style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 500 }}>
-                <FileText size={20} color="#818cf8" />
-                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '280px' }}>
-                  {doc.filename}
-                </span>
-              </td>
-              <td style={{ padding: '1rem', color: '#94a3b8' }}>{formatFileSize(doc.file_size)}</td>
-              <td style={{ padding: '1rem', color: '#94a3b8' }}>{doc.chunk_count || 0}</td>
-              <td style={{ padding: '1rem' }}>{renderStatusBadge(doc.status)}</td>
-              <td style={{ padding: '1rem', textAlign: 'right' }}>
-                <button
-                  onClick={() => handleDelete(doc.id)}
-                  style={{ background: 'transparent', border: 'none', color: '#f87171', cursor: 'pointer', padding: '0.375rem', borderRadius: '0.375rem' }}
-                  title="Delete Document"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </td>
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#64748b' }}>
+              <th style={{ padding: '0.75rem 1rem' }}>Document Name</th>
+              <th style={{ padding: '0.75rem 1rem' }}>Size</th>
+              <th style={{ padding: '0.75rem 1rem' }}>Chunks</th>
+              <th style={{ padding: '0.75rem 1rem' }}>Status</th>
+              <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {safeDocs.map((doc) => (
+              <tr
+                key={doc.id}
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: '#e2e8f0', cursor: 'pointer' }}
+                onClick={() => setSelectedDoc(doc)}
+              >
+                <td style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 500 }}>
+                  <FileText size={20} color="#818cf8" />
+                  <span
+                    style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '280px', color: '#c7d2fe', textDecoration: 'underline' }}
+                    title="Click to view details & open document"
+                  >
+                    {doc.filename}
+                  </span>
+                </td>
+                <td style={{ padding: '1rem', color: '#94a3b8' }}>{formatFileSize(doc.file_size)}</td>
+                <td style={{ padding: '1rem', color: '#94a3b8' }}>{doc.chunk_count || 0}</td>
+                <td style={{ padding: '1rem' }}>{renderStatusBadge(doc.status)}</td>
+                <td style={{ padding: '1rem', textAlign: 'right' }}>
+                  <div style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedDoc(doc);
+                      }}
+                      style={{ background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.2)', color: '#818cf8', cursor: 'pointer', padding: '0.375rem 0.625rem', borderRadius: '0.375rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                      title="Open & Preview Document"
+                    >
+                      <Eye size={14} /> Open
+                    </button>
+                    <button
+                      onClick={(e) => handleDelete(doc.id, e)}
+                      style={{ background: 'transparent', border: 'none', color: '#f87171', cursor: 'pointer', padding: '0.375rem', borderRadius: '0.375rem' }}
+                      title="Delete Document"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <DocumentPreviewModal
+        document={selectedDoc}
+        onClose={() => setSelectedDoc(null)}
+        onDeleted={onDocumentDeleted}
+      />
+    </>
   );
 };
+

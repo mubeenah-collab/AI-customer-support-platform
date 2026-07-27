@@ -1,12 +1,38 @@
-"""
-Integration concurrency test verifying system stability under multi-user concurrent requests.
-Simulates 10 concurrent users issuing health requests, authentication, and chat queries.
-"""
 import asyncio
 import time
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.pool import StaticPool
 from backend.src.app import app
+from backend.src.infrastructure.database.base import Base
+from backend.src.infrastructure.database.session import get_async_db
+
+TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def setup_test_db():
+    engine = create_async_engine(
+        TEST_DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        echo=False,
+    )
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    session_factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+
+    async def override_get_db():
+        async with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_async_db] = override_get_db
+    yield
+    app.dependency_overrides.clear()
+    await engine.dispose()
 
 
 @pytest.mark.asyncio
@@ -38,3 +64,4 @@ async def test_concurrent_auth_logins():
         assert len(responses) == 10
         # Should return 401 Unauthorized cleanly without crashing the connection pool
         assert all(r.status_code in (401, 404, 422) for r in responses)
+

@@ -51,6 +51,32 @@ def test_send_chat_message_authenticated(mock_active_user):
     assert data["conversation_id"] == "conv_1"
 
 
+def test_send_chat_message_json_with_message_key(mock_active_user):
+    mock_service = AsyncMock()
+    mock_msg = MagicMock()
+    mock_msg.id = "msg_2"
+    mock_msg.conversation_id = "conv_2"
+    mock_msg.sender_type = "assistant"
+    mock_msg.content = "Replacement policy details."
+    mock_msg.sources = []
+    mock_msg.created_at = "2026-07-25T12:00:00"
+
+    mock_service.process_user_question.return_value = mock_msg
+
+    app.dependency_overrides[get_current_active_user] = lambda: mock_active_user
+    app.dependency_overrides[get_chat_service] = lambda: mock_service
+
+    client = TestClient(app)
+    response = client.post("/api/v1/chat/message", json={"message": "Can I get a replacement?"})
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["content"] == "Replacement policy details."
+    assert data["conversation_id"] == "conv_2"
+
+
 def test_list_conversations_authenticated(mock_active_user):
     mock_service = AsyncMock()
     mock_conv = MagicMock()

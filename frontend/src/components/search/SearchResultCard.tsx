@@ -15,7 +15,10 @@ interface SearchResultCardProps {
 }
 
 export const SearchResultCard: React.FC<SearchResultCardProps> = ({ result }) => {
-  const percentage = Math.round(result.score * 100);
+  const rawScore = result.score ?? (result as any).relevance_score ?? 0;
+  const percentage = typeof rawScore === 'number' && !isNaN(rawScore) && isFinite(rawScore)
+    ? Math.max(0, Math.min(100, Math.round(rawScore * 100)))
+    : 0;
 
   return (
     <div className="glass-card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>

@@ -62,3 +62,37 @@ async def get_current_active_user(
             detail="Inactive user account",
         )
     return current_user
+
+
+async def require_admin(
+    current_user: User = Depends(get_current_active_user),
+) -> User:
+    is_admin = current_user.is_superuser or (current_user.role and current_user.role.lower() == "admin")
+    if not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required to access this resource",
+        )
+    return current_user
+
+
+async def require_customer(
+    current_user: User = Depends(get_current_active_user),
+) -> User:
+    return current_user
+
+
+def require_role(allowed_roles: list[str]):
+    async def role_checker(current_user: User = Depends(get_current_active_user)) -> User:
+        if current_user.is_superuser:
+            return current_user
+        user_role = (current_user.role or "customer").lower()
+        allowed = [r.lower() for r in allowed_roles]
+        if user_role not in allowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access forbidden: User role '{current_user.role}' is not authorized",
+            )
+        return current_user
+
+    return role_checker

@@ -78,8 +78,8 @@ class Settings(BaseSettings):
     # Google Gemini AI
     GOOGLE_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
-    GEMINI_LLM_MODEL: str = "gemini-2.0-flash"
-    GEMINI_VISION_MODEL: str = "gemini-2.0-flash"
+    GEMINI_LLM_MODEL: str = "gemini-flash-latest"
+    GEMINI_VISION_MODEL: str = "gemini-flash-latest"
     GEMINI_EMBEDDING_MODEL: str = "models/gemini-embedding-001"
 
     def model_post_init(self, __context):
@@ -101,7 +101,7 @@ class Settings(BaseSettings):
 
     # RAG Configuration
     RETRIEVAL_TOP_K: int = 5
-    RETRIEVAL_SCORE_THRESHOLD: float = 0.7
+    RETRIEVAL_SCORE_THRESHOLD: float = 0.15
 
     model_config = SettingsConfigDict(
         env_file=".env",

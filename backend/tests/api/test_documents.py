@@ -51,7 +51,7 @@ async def test_document_upload_list_delete_flow(async_client: AsyncClient):
         "email": "docuser@example.com",
         "password": "Password123!",
         "full_name": "Doc User",
-        "role": "customer",
+        "role": "admin",
     }
     await async_client.post("/api/v1/auth/register", json=register_payload)
 
@@ -84,6 +84,11 @@ async def test_document_upload_list_delete_flow(async_client: AsyncClient):
     assert get_res.status_code == 200
     assert get_res.json()["id"] == doc_id
 
+    # 4b. Download Document File
+    dl_res = await async_client.get(f"/api/v1/documents/{doc_id}/download", headers=headers)
+    assert dl_res.status_code == 200
+    assert file_content in dl_res.content
+
     # 5. Delete Document
     del_res = await async_client.delete(f"/api/v1/documents/{doc_id}", headers=headers)
     assert del_res.status_code == 200
@@ -96,8 +101,8 @@ async def test_document_upload_list_delete_flow(async_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_document_upload_invalid_type_rejected(async_client: AsyncClient):
-    await async_client.post("/api/v1/auth/register", json={"email": "hacker@example.com", "password": "Password123!"})
-    login_res = await async_client.post("/api/v1/auth/login", json={"email": "hacker@example.com", "password": "Password123!"})
+    await async_client.post("/api/v1/auth/register", json={"email": "admin_uploader@example.com", "password": "Password123!", "role": "admin"})
+    login_res = await async_client.post("/api/v1/auth/login", json={"email": "admin_uploader@example.com", "password": "Password123!"})
     headers = {"Authorization": f"Bearer {login_res.json()['access_token']}"}
 
     files = {"file": ("malicious.exe", io.BytesIO(b"binary content"), "application/x-msdownload")}

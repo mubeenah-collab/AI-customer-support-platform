@@ -6,7 +6,7 @@ from backend.src.application.services.user_service import UserService
 from backend.src.domain.entities.user import User
 from backend.src.domain.exceptions.auth_exceptions import UserNotFoundError
 from backend.src.infrastructure.database.session import get_async_db
-from backend.src.presentation.api.v1.dependencies import get_current_active_user
+from backend.src.presentation.api.v1.dependencies import get_current_active_user, require_admin
 from backend.src.presentation.schemas.user_schemas import UserListResponse, UserProfileResponse, UserUpdateRequest
 
 logger = logging.getLogger("user_router")
@@ -56,12 +56,12 @@ async def update_current_user_profile(
     "",
     response_model=UserListResponse,
     status_code=status.HTTP_200_OK,
-    summary="List all platform users",
+    summary="List all platform users (Admin only)",
 )
 async def list_users(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
     user_service: UserService = Depends(get_user_service),
 ):
     users = await user_service.list_users(skip=skip, limit=limit)

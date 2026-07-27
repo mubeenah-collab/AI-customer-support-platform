@@ -68,12 +68,38 @@ class GeminiLLMService(ILLMService):
             response = call_with_retry(client.invoke, messages)
             if not response or not response.content:
                 raise LLMServiceError("Gemini API returned empty response.")
+            if isinstance(response.content, list):
+                parts = []
+                for p in response.content:
+                    if isinstance(p, dict) and "text" in p:
+                        parts.append(p["text"])
+                    elif isinstance(p, str):
+                        parts.append(p)
+                return "\n".join(parts) if parts else str(response.content)
             return str(response.content)
         except LLMServiceError:
             raise
         except Exception as e:
+            err_str = str(e)
+            fallback_models = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-flash-latest"]
+            for fb_model in fallback_models:
+                if fb_model == self.model_name:
+                    continue
+                try:
+                    logger.warning(f"Model {self.model_name} error ({err_str[:60]}). Retrying with fallback model {fb_model}...")
+                    fallback_client = ChatGoogleGenerativeAI(
+                        model=fb_model,
+                        google_api_key=self.api_key,
+                        temperature=self.temperature,
+                    )
+                    fb_response = call_with_retry(fallback_client.invoke, messages, max_retries=1)
+                    if fb_response and fb_response.content:
+                        return str(fb_response.content)
+                except Exception as fb_err:
+                    logger.error(f"Fallback model {fb_model} failed: {str(fb_err)[:80]}")
+
             logger.error("Gemini LLM generate error: %s", type(e).__name__)
-            raise LLMServiceError(f"Gemini API error during generation: {type(e).__name__}") from e
+            raise LLMServiceError(f"Gemini API error during generation: {err_str}") from e
 
     def generate_structured(self, prompt: str, response_schema: Type[T]) -> T:
         """Generate structured Pydantic output using PydanticOutputParser."""

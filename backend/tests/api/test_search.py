@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from backend.src.ai.rag.base_vector_store import RetrievedChunk
 from backend.src.app import app
 from backend.src.domain.entities.user import User
-from backend.src.presentation.api.v1.dependencies import get_current_active_user
+from backend.src.presentation.api.v1.dependencies import get_current_active_user, require_admin
 from backend.src.presentation.api.v1.search_router import get_search_service
 
 
@@ -16,12 +16,15 @@ def mock_active_user():
         email="search_user@example.com",
         hashed_password="hashed_password_sample",
         full_name="Search User",
+        role="admin",
         is_active=True,
+        is_superuser=True,
     )
 
 
 def test_semantic_search_unauthenticated():
     client = TestClient(app)
+    app.dependency_overrides.clear()
     response = client.post("/api/v1/search/semantic", json={"query": "refund policy"})
     assert response.status_code == 401
 
@@ -46,6 +49,7 @@ def test_semantic_search_authenticated(mock_active_user):
     }
 
     app.dependency_overrides[get_current_active_user] = lambda: mock_active_user
+    app.dependency_overrides[require_admin] = lambda: mock_active_user
     app.dependency_overrides[get_search_service] = lambda: mock_service
 
     client = TestClient(app)
@@ -80,6 +84,7 @@ def test_hybrid_search_authenticated(mock_active_user):
     }
 
     app.dependency_overrides[get_current_active_user] = lambda: mock_active_user
+    app.dependency_overrides[require_admin] = lambda: mock_active_user
     app.dependency_overrides[get_search_service] = lambda: mock_service
 
     client = TestClient(app)

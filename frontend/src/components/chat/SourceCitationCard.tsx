@@ -13,7 +13,10 @@ interface SourceCitationCardProps {
 }
 
 export const SourceCitationCard: React.FC<SourceCitationCardProps> = ({ citation }) => {
-  const percentage = Math.round(citation.confidence_score * 100);
+  const score = citation.confidence_score;
+  const percentage = typeof score === 'number' && !isNaN(score) && isFinite(score)
+    ? Math.max(0, Math.min(100, Math.round(score * 100)))
+    : 0;
 
   return (
     <div

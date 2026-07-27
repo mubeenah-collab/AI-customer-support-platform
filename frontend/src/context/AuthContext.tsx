@@ -13,8 +13,10 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isAdmin: boolean;
+  isCustomer: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, fullName: string) => Promise<void>;
+  register: (email: string, password: string, fullName: string, role?: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -25,44 +27,75 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(localStorage.getItem('access_token'));
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const fetchCurrentUser = async () => {
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
+  const isCustomer = user?.role?.toLowerCase() === 'customer' || (!user?.role && !!user);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (token) {
+      setIsLoading(true);
+      apiClient
+        .get('/auth/me')
+        .then((res) => {
+          if (isMounted) {
+            setUser(res.data);
+          }
+        })
+        .catch(() => {
+          if (isMounted) {
+            setUser(null);
+            setToken(null);
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+          }
+        })
+        .finally(() => {
+          if (isMounted) {
+            setIsLoading(false);
+          }
+        });
+    } else {
+      setUser(null);
+      setIsLoading(false);
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [token]);
+
+  const login = async (email: string, password: string) => {
+    setIsLoading(true);
     try {
-      const res = await apiClient.get('/auth/me');
-      setUser(res.data);
+      const res = await apiClient.post('/auth/login', { email, password });
+      const { access_token, refresh_token } = res.data;
+
+      localStorage.setItem('access_token', access_token);
+      localStorage.setItem('refresh_token', refresh_token);
+      
+      const meRes = await apiClient.get('/auth/me', {
+        headers: { Authorization: `Bearer ${access_token}` },
+      });
+      setUser(meRes.data);
+      setToken(access_token);
     } catch (err) {
       setUser(null);
       setToken(null);
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
+      throw err;
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (token) {
-      fetchCurrentUser();
-    } else {
-      setIsLoading(false);
-    }
-  }, [token]);
-
-  const login = async (email: string, password: string) => {
-    const res = await apiClient.post('/auth/login', { email, password });
-    const { access_token, refresh_token } = res.data;
-
-    localStorage.setItem('access_token', access_token);
-    localStorage.setItem('refresh_token', refresh_token);
-    setToken(access_token);
-    await fetchCurrentUser();
-  };
-
-  const register = async (email: string, password: string, fullName: string) => {
+  const register = async (email: string, password: string, fullName: string, role = 'customer') => {
     await apiClient.post('/auth/register', {
       email,
       password,
       full_name: fullName,
-      role: 'customer',
+      role,
     });
     await login(email, password);
   };
@@ -72,6 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('refresh_token');
     setUser(null);
     setToken(null);
+    setIsLoading(false);
   };
 
   return (
@@ -81,6 +115,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token,
         isAuthenticated: !!user,
         isLoading,
+        isAdmin,
+        isCustomer,
         login,
         register,
         logout,

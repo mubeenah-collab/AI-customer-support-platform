@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from backend.src.app import app
 from backend.src.domain.entities.user import User
-from backend.src.presentation.api.v1.dependencies import get_current_active_user
+from backend.src.presentation.api.v1.dependencies import get_current_active_user, require_admin
 from backend.src.presentation.api.v1.user_router import get_user_service
 
 
@@ -27,6 +27,7 @@ def mock_active_user():
 
 def test_get_me_unauthenticated():
     client = TestClient(app)
+    app.dependency_overrides.clear()
     response = client.get("/api/v1/users/me")
     assert response.status_code == 401
 
@@ -75,6 +76,7 @@ def test_list_users_authenticated(mock_active_user):
     mock_service.list_users.return_value = [mock_active_user]
 
     app.dependency_overrides[get_current_active_user] = lambda: mock_active_user
+    app.dependency_overrides[require_admin] = lambda: mock_active_user
     app.dependency_overrides[get_user_service] = lambda: mock_service
 
     client = TestClient(app)

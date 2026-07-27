@@ -2,23 +2,27 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.src.ai.llm.base_llm import ILLMService
 from backend.src.ai.llm.conversation_context import ChatMessageItem, format_conversation_history
 from backend.src.ai.orchestration.state import SupportState
 from backend.src.ai.orchestration.support_graph import build_support_graph
 from backend.src.ai.rag.rag_pipeline import RAGPipeline
+from backend.src.ai.safety.safety_escalation import SafetyEscalator
 from backend.src.ai.vlm.base_vlm import IVisionService
-from backend.src.ai.llm.base_llm import ILLMService
+from backend.src.application.services.ticket_service import TicketService
 from backend.src.domain.entities.conversation import Conversation
 from backend.src.domain.entities.message import Message
+from backend.src.domain.entities.user import User
 from backend.src.domain.exceptions.chat_exceptions import ConversationNotFoundError, MessageProcessingError
 from backend.src.infrastructure.repositories.conversation_repository import SQLAlchemyConversationRepository
 from backend.src.infrastructure.repositories.message_repository import SQLAlchemyMessageRepository
+from backend.src.infrastructure.repositories.ticket_repository import SQLAlchemyTicketRepository
 
 logger = logging.getLogger("chat_service")
 
 
 class ChatService:
-    """Application service managing chat conversations, Q&A message persistence, and LangGraph workflow invocation."""
+    """Application service managing chat conversations, Q&A message persistence, safety escalation, and LangGraph workflow invocation."""
 
     def __init__(
         self,
@@ -30,6 +34,7 @@ class ChatService:
         self.session = session
         self.conv_repo = SQLAlchemyConversationRepository(session)
         self.msg_repo = SQLAlchemyMessageRepository(session)
+        self.ticket_service = TicketService(SQLAlchemyTicketRepository(session))
         self.rag_pipeline = rag_pipeline
         self.llm_service = llm_service
         self.vision_service = vision_service
@@ -62,7 +67,7 @@ class ChatService:
         conversation_id: Optional[str] = None,
         image_bytes: Optional[bytes] = None,
     ) -> Message:
-        """Process user question through LangGraph AI workflow, persist user and assistant messages to DB."""
+        """Process user question through LangGraph AI workflow, enforce safety guardrails, and persist messages to DB."""
         if not query or not query.strip():
             raise MessageProcessingError("Customer query cannot be empty.")
 
@@ -81,15 +86,38 @@ class ChatService:
         )
         await self.msg_repo.create(user_msg)
 
-        # 3. Retrieve prior messages for context
+        # 3. Safety Guardrail & Prompt Injection Pre-Check
+        safety_check = SafetyEscalator.analyze_user_query(query.strip())
+        if not safety_check.is_safe:
+            refusal_text = f"{safety_check.reason}\n\nOur system has automatically flagged this inquiry for team review. If you require further assistance, please view your tickets under Support Tickets."
+
+            # Auto-create ticket for safety escalation
+            user_stub = User(id=user_id, email="customer@example.com", hashed_password="")
+            await self.ticket_service.create_ticket(
+                user=user_stub,
+                subject=f"Safety Flagged Query: {query[:40]}...",
+                description=f"Query flagged by platform safety guardrails:\n'{query.strip()}'\nReason: {safety_check.reason}",
+                priority="high",
+                category=safety_check.suggested_ticket_category or "safety_escalation",
+            )
+
+            assistant_msg = Message(
+                conversation_id=conv.id,
+                sender_type="assistant",
+                content=refusal_text,
+                citations=[],
+            )
+            return await self.msg_repo.create(assistant_msg)
+
+        # 4. Retrieve prior messages for context
         prior_messages = await self.msg_repo.get_by_conversation_id(conv.id)
         chat_items = [
             ChatMessageItem(sender_type=m.sender_type, content=m.content)
-            for m in prior_messages[:-1]  # Exclude current user message
+            for m in prior_messages[:-1]
         ]
         history_str = format_conversation_history(chat_items)
 
-        # 4. Invoke LangGraph State Machine
+        # 5. Invoke LangGraph State Machine
         initial_state: SupportState = {
             "user_id": user_id,
             "conversation_id": conv.id,
@@ -104,16 +132,34 @@ class ChatService:
             citations = final_state.get("citations", [])
             confidence = final_state.get("confidence", 1.0)
             has_context = final_state.get("has_sufficient_context", True)
+
+            # Evaluate confidence & grounding for escalation note
+            should_escalate, esc_reason = SafetyEscalator.evaluate_response_confidence(
+                confidence_score=confidence,
+                has_sufficient_context=has_context,
+                citations=citations,
+            )
+            if should_escalate:
+                answer_text += f"\n\n---\n📌 **Support Escalation Note**: {esc_reason} If you require human assistance, you can submit a support ticket under **Support Tickets**."
+
         except Exception as e:
             logger.error(f"ChatService graph execution failure: {str(e)}")
-            raise MessageProcessingError(f"AI workflow execution error: {str(e)}") from e
+            if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e) or "quota" in str(e).lower():
+                answer_text = (
+                    "I apologize, but our AI engine is currently experiencing high demand (Gemini API Quota limit reached). "
+                    "If you are inquiring about a product replacement or warranty claim, standard items are eligible for replacement "
+                    "within 30 days of purchase. Please try your request again in a few moments or contact our support team directly."
+                )
+                citations = []
+            else:
+                raise MessageProcessingError(f"AI workflow execution error: {str(e)}") from e
 
         # 5. Persist Assistant Response Message
         assistant_msg = Message(
             conversation_id=conv.id,
             sender_type="assistant",
             content=answer_text,
-            sources=citations,
+            citations=citations,
         )
         saved_assistant_msg = await self.msg_repo.create(assistant_msg)
         return saved_assistant_msg

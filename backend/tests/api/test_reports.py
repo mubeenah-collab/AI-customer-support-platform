@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from backend.src.app import app
 from backend.src.domain.entities.user import User
-from backend.src.presentation.api.v1.dependencies import get_current_active_user
+from backend.src.presentation.api.v1.dependencies import get_current_active_user, require_admin
 from backend.src.presentation.api.v1.report_router import get_report_service
 
 
@@ -15,12 +15,15 @@ def mock_active_user():
         email="report_user@example.com",
         hashed_password="hashed_password_sample",
         full_name="Report User",
+        role="admin",
         is_active=True,
+        is_superuser=True,
     )
 
 
 def test_document_summary_unauthenticated():
     client = TestClient(app)
+    app.dependency_overrides.clear()
     response = client.post("/api/v1/reports/document-summary", json={"document_id": "doc_1"})
     assert response.status_code == 401
 
@@ -36,6 +39,7 @@ def test_document_summary_authenticated(mock_active_user):
     }
 
     app.dependency_overrides[get_current_active_user] = lambda: mock_active_user
+    app.dependency_overrides[require_admin] = lambda: mock_active_user
     app.dependency_overrides[get_report_service] = lambda: mock_service
 
     client = TestClient(app)
@@ -62,6 +66,7 @@ def test_support_report_authenticated(mock_active_user):
     mock_service.generate_support_report.return_value = mock_report
 
     app.dependency_overrides[get_current_active_user] = lambda: mock_active_user
+    app.dependency_overrides[require_admin] = lambda: mock_active_user
     app.dependency_overrides[get_report_service] = lambda: mock_service
 
     client = TestClient(app)

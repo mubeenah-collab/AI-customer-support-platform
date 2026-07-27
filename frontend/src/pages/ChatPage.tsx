@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { Bot } from 'lucide-react';
 import { ConversationList, ConversationItem } from '../components/chat/ConversationList';
 import { ChatMessage, ChatMessageItem } from '../components/chat/ChatMessage';
 import { ChatInput } from '../components/chat/ChatInput';
@@ -65,16 +66,11 @@ export const ChatPage: React.FC = () => {
     let imageUrl: string | undefined = undefined;
 
     if (imageFile) {
-      const formData = new FormData();
-      formData.append('file', imageFile);
-      try {
-        const uploadRes = await apiClient.post('/documents/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        imageUrl = uploadRes.data.file_path;
-      } catch (err) {
-        console.error('Image upload failed before sending chat message:', err);
-      }
+      imageUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(imageFile);
+      });
     }
 
     const tempUserMsg: ChatMessageItem = {
@@ -90,6 +86,7 @@ export const ChatPage: React.FC = () => {
 
     try {
       const res = await apiClient.post('/chat/message', {
+        query: content,
         message: content,
         conversation_id: activeConversationId || undefined,
         image_url: imageUrl,
@@ -156,14 +153,26 @@ export const ChatPage: React.FC = () => {
           {messages.length === 0 ? (
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b', textAlign: 'center' }}>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f8fafc', marginBottom: '0.5rem' }}>
-                AI Customer Support Console
+                AI Customer Support Assistant
               </h2>
               <p style={{ maxWidth: '440px', fontSize: '0.875rem' }}>
-                Ask grounded queries across your uploaded knowledge base documents or attach error screenshots for VLM multi-modal diagnosis.
+                Ask grounded queries across your knowledge base documents or attach error screenshots for multi-modal diagnosis.
               </p>
             </div>
           ) : (
             messages.map((msg) => <ChatMessage key={msg.id} message={msg} />)
+          )}
+
+          {isLoading && (
+            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, #10b981, #06b6d4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Bot size={20} color="#ffffff" />
+              </div>
+              <div style={{ backgroundColor: 'rgba(30, 41, 59, 0.8)', color: '#94a3b8', padding: '1rem 1.25rem', borderRadius: '1.25rem 1.25rem 1.25rem 0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981', animation: 'ping 1s cubic-bezier(0, 0, 0.2, 1) infinite' }} />
+                <span>Searching knowledge base and synthesizing grounded answer...</span>
+              </div>
+            </div>
           )}
           <div ref={messagesEndRef} />
         </div>

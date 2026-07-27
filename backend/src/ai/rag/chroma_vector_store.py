@@ -1,3 +1,4 @@
+import math
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -14,6 +15,29 @@ from backend.src.config.settings import settings
 logger = logging.getLogger("chroma_vector_store")
 
 COLLECTION_NAME = "knowledge_base"
+
+
+def calculate_safe_similarity(dist: Any) -> float:
+    """Safely calculate relevance similarity score [0.0, 1.0] from vector distance, handling None, NaN, Inf, or negative values."""
+    if dist is None:
+        return 0.0
+    try:
+        dist_float = float(dist)
+    except (ValueError, TypeError):
+        return 0.0
+
+    if math.isnan(dist_float) or math.isinf(dist_float):
+        return 0.0
+
+    if dist_float <= 0.0:
+        return 1.0
+
+    if dist_float <= 1.0:
+        sim = 1.0 - dist_float
+    else:
+        sim = max(0.0, 1.0 - (dist_float / 2.0))
+
+    return max(0.0, min(1.0, round(sim, 4)))
 
 
 class ChromaVectorStore(IVectorStore):
@@ -138,9 +162,7 @@ class ChromaVectorStore(IVectorStore):
             c_doc = docs_list[i] if i < len(docs_list) else ""
             c_meta = metas_list[i] if i < len(metas_list) else {}
             dist = dists_list[i] if i < len(dists_list) else 1.0
-
-            # Cosine distance to similarity conversion: similarity = 1.0 - distance
-            similarity = max(0.0, min(1.0, 1.0 - dist))
+            similarity = calculate_safe_similarity(dist)
 
             if similarity >= score_threshold:
                 retrieved.append(

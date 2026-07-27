@@ -1,5 +1,6 @@
 from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from backend.src.application.services.document_service import DocumentService
 from backend.src.domain.entities.user import User
@@ -14,7 +15,7 @@ from backend.src.domain.exceptions.document_exceptions import (
 from backend.src.infrastructure.database.session import AsyncSessionFactory, get_async_db
 from backend.src.infrastructure.repositories.document_repository import SQLAlchemyDocumentRepository
 from backend.src.infrastructure.storage.storage_service import StorageService
-from backend.src.presentation.api.v1.dependencies import get_current_active_user
+from backend.src.presentation.api.v1.dependencies import get_current_active_user, require_admin
 from backend.src.presentation.schemas.document_schemas import (
     DocumentListResponse,
     DocumentResponse,
@@ -40,7 +41,7 @@ async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     title: Optional[str] = Form(None),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
     doc_service: DocumentService = Depends(get_document_service),
     session_factory: async_sessionmaker[AsyncSession] = Depends(get_session_factory),
 ):
@@ -78,7 +79,7 @@ async def upload_document(
 async def list_documents(
     skip: int = 0,
     limit: int = 100,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
     doc_service: DocumentService = Depends(get_document_service),
 ):
     """List uploaded documents for current user or all documents for admins."""
@@ -88,7 +89,7 @@ async def list_documents(
 @document_router.get("/{document_id}", response_model=DocumentResponse)
 async def get_document(
     document_id: str,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
     doc_service: DocumentService = Depends(get_document_service),
 ):
     """Retrieve details of a specific document by ID."""
@@ -103,7 +104,7 @@ async def get_document(
 @document_router.delete("/{document_id}", status_code=status.HTTP_200_OK)
 async def delete_document(
     document_id: str,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
     doc_service: DocumentService = Depends(get_document_service),
 ):
     """Delete a document and its stored physical file."""
@@ -114,3 +115,29 @@ async def delete_document(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
     except ForbiddenError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=e.message)
+
+
+@document_router.get("/{document_id}/download")
+async def download_document(
+    document_id: str,
+    disposition: str = "inline",
+    current_user: User = Depends(require_admin),
+    doc_service: DocumentService = Depends(get_document_service),
+):
+    """Download or stream raw document file."""
+    try:
+        file_path, filename, mime_type = await doc_service.get_document_file(current_user, document_id)
+        content_disposition = "attachment" if disposition == "attachment" else "inline"
+        return FileResponse(
+            path=str(file_path),
+            filename=filename,
+            media_type=mime_type,
+            headers={"Content-Disposition": f'{content_disposition}; filename="{filename}"'},
+        )
+    except DocumentNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
+    except ForbiddenError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=e.message)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+

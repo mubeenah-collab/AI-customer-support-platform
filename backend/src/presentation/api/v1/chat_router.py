@@ -1,7 +1,7 @@
 import json
 import logging
 from typing import List, Optional
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -52,21 +52,31 @@ def get_chat_service(session: AsyncSession = Depends(get_async_db)) -> ChatServi
     summary="Submit a customer question (supports optional screenshot upload)",
 )
 async def send_chat_message(
+    request: Request,
     query: Optional[str] = Form(None),
+    message: Optional[str] = Form(None),
     conversation_id: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
-    json_payload: Optional[ChatMessageRequest] = None,
     current_user: User = Depends(get_current_active_user),
     chat_service: ChatService = Depends(get_chat_service),
 ):
-    # Extract query text and conversation ID from Form or JSON payload
-    query_text = query if query else (json_payload.query if json_payload else None)
-    conv_id = conversation_id if conversation_id else (json_payload.conversation_id if json_payload else None)
+    query_text = query or message
+    conv_id = conversation_id
 
-    if not query_text or not query_text.strip():
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        try:
+            body_json = await request.json()
+            if isinstance(body_json, dict):
+                query_text = query_text or body_json.get("query") or body_json.get("message")
+                conv_id = conv_id or body_json.get("conversation_id")
+        except Exception:
+            pass
+
+    if not query_text or not str(query_text).strip():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Field 'query' is required.",
+            detail="Field 'query' or 'message' is required.",
         )
 
     image_bytes = None
@@ -76,17 +86,23 @@ async def send_chat_message(
     try:
         assistant_message = await chat_service.process_user_question(
             user_id=current_user.id,
-            query=query_text.strip(),
+            query=str(query_text).strip(),
             conversation_id=conv_id,
             image_bytes=image_bytes,
         )
+
+        raw_citations = getattr(assistant_message, "citations", None)
+        if not raw_citations or not isinstance(raw_citations, list):
+            raw_citations = getattr(assistant_message, "sources", None)
+        if not isinstance(raw_citations, list):
+            raw_citations = []
 
         return ChatMessageResponse(
             id=assistant_message.id,
             conversation_id=assistant_message.conversation_id,
             sender_type=assistant_message.sender_type,
             content=assistant_message.content,
-            citations=assistant_message.sources or [],
+            citations=raw_citations,
             confidence_score=1.0,
             has_sufficient_context=True,
             created_at=assistant_message.created_at,
@@ -95,6 +111,34 @@ async def send_chat_message(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except MessageProcessingError as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=e.message)
+
+
+@router.get(
+    "/history",
+    summary="Get aggregated customer chat history for CustomerHistoryPage",
+)
+async def get_user_chat_history(
+    current_user: User = Depends(get_current_active_user),
+    chat_service: ChatService = Depends(get_chat_service),
+):
+    conversations = await chat_service.list_user_conversations(user_id=current_user.id)
+    history_items = []
+    for conv in conversations:
+        msgs = await chat_service.list_conversation_messages(user_id=current_user.id, conversation_id=conv.id)
+        user_msgs = [m for m in msgs if m.sender_type == "user"]
+        assistant_msgs = [m for m in msgs if m.sender_type == "assistant"]
+        for idx in range(len(assistant_msgs)):
+            u_text = user_msgs[idx].content if idx < len(user_msgs) else (conv.title or "Customer Question")
+            a_msg = assistant_msgs[idx]
+            created_str = a_msg.created_at.isoformat() if hasattr(a_msg.created_at, "isoformat") else str(a_msg.created_at)
+            history_items.append({
+                "id": a_msg.id,
+                "query": u_text,
+                "response": a_msg.content,
+                "category": "support_inquiry",
+                "created_at": created_str,
+            })
+    return {"messages": history_items, "total": len(history_items)}
 
 
 @router.get(
@@ -126,19 +170,26 @@ async def get_conversation_messages(
             user_id=current_user.id,
             conversation_id=conversation_id,
         )
-        return [
-            ChatMessageResponse(
-                id=m.id,
-                conversation_id=m.conversation_id,
-                sender_type=m.sender_type,
-                content=m.content,
-                citations=m.sources or [],
-                confidence_score=1.0,
-                has_sufficient_context=True,
-                created_at=m.created_at,
+        res = []
+        for m in messages:
+            c = getattr(m, "citations", None)
+            if not c or not isinstance(c, list):
+                c = getattr(m, "sources", None)
+            if not isinstance(c, list):
+                c = []
+            res.append(
+                ChatMessageResponse(
+                    id=m.id,
+                    conversation_id=m.conversation_id,
+                    sender_type=m.sender_type,
+                    content=m.content,
+                    citations=c,
+                    confidence_score=1.0,
+                    has_sufficient_context=True,
+                    created_at=m.created_at,
+                )
             )
-            for m in messages
-        ]
+        return res
     except ConversationNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
