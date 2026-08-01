@@ -138,18 +138,18 @@ Open `http://localhost:3100` in your browser.
 
 ---
 
-## 🌐 Production Architecture & Cloud Deployment
+## 🌐 Production Architecture & Azure Cloud Deployment
 
-This platform is production-ready for deployment on modern cloud infrastructure:
+This platform is production-ready for deployment on **Microsoft Azure** using **Azure for Students** credits ($100 free credit, zero mandatory credit card requirement):
 
-- **Frontend**: Deployed on **Vercel** (Vite SPA with SPA route rewrites in `vercel.json` and `frontend/vercel.json`).
-- **Backend**: Deployed on **Render** (FastAPI Python 3.12 Web Service managed via `render.yaml` blueprint).
-- **Database**: **Render PostgreSQL** with automatic Alembic migrations (`alembic upgrade head`) on startup.
-- **Vector Storage**: **ChromaDB `PersistentClient`** using a **Render Persistent Disk** mounted at `/var/data/chroma`.
-- **Uploaded Files**: Saved on **Render Persistent Disk** mounted at `/var/data/uploads`.
+- **Frontend**: Deployed on **Azure Static Web Apps** (Free Tier, SPA route rewrites in `frontend/staticwebapp.config.json`).
+- **Backend**: Deployed on **Azure App Service** (Linux Python 3.12, startup script `startup.sh`).
+- **Database**: **Azure Database for PostgreSQL Flexible Server** (`sslmode=require`) with automatic Alembic migrations (`alembic upgrade head`) on startup.
+- **Vector Storage**: **ChromaDB `PersistentClient`** using **App Service Persistent Storage** mounted at `/home/site/data/chroma`.
+- **Uploaded Files**: Saved on **App Service Persistent Storage** mounted at `/home/site/data/uploads`.
 - **AI Engine**: **Google Gemini 2.5 Pro** LLM/VLM and **Gemini Embeddings** (`models/text-embedding-004`).
 
-For complete, step-by-step instructions on setting up Render, Vercel, PostgreSQL, environment variables, and health checks, see [DEPLOYMENT.md](file:///c:/AI%20Customer%20Support%20platform/DEPLOYMENT.md).
+For complete, step-by-step instructions on setting up Azure App Service, Azure Static Web Apps, PostgreSQL Flexible Server, environment variables, and health checks, see [AZURE_DEPLOYMENT.md](file:///c:/AI%20Customer%20Support%20platform/AZURE_DEPLOYMENT.md).
 
 ---
 
@@ -173,4 +173,5 @@ npm run build
 ## 🛡️ License
 
 Built for Enterprise AI Support Workflows. All rights reserved.
+
 

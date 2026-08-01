@@ -1,0 +1,14 @@
+# Azure Developer CLI Specification (azure.yaml)
+# Production Deployment for AI Customer Support Platform
+name: ai-customer-support-platform
+metadata:
+  template: app-service-static-web-app-python-react
+services:
+  web:
+    project: backend
+    language: python
+    host: appservice
+  frontend:
+    project: frontend
+    language: js
+    host: staticwebapp
