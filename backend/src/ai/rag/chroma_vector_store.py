@@ -52,6 +52,16 @@ class ChromaVectorStore(IVectorStore):
 
         if client is not None:
             self.client = client
+        elif settings.CHROMA_USE_HTTP_CLIENT:
+            try:
+                self.client = chromadb.HttpClient(
+                    host=settings.CHROMA_HOST,
+                    port=settings.CHROMA_PORT,
+                    settings=ChromaSettings(anonymized_telemetry=False),
+                )
+            except Exception as e:
+                logger.error(f"ChromaDB HttpClient connection failed: {str(e)}")
+                raise VectorStoreError(f"ChromaDB HTTP connection failure: {str(e)}") from e
         else:
             try:
                 # Ensure local persist directory exists

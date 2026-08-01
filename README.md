@@ -138,12 +138,27 @@ Open `http://localhost:3100` in your browser.
 
 ---
 
+## 🌐 Production Architecture & Cloud Deployment
+
+This platform is production-ready for deployment on modern cloud infrastructure:
+
+- **Frontend**: Deployed on **Vercel** (Vite SPA with SPA route rewrites in `vercel.json` and `frontend/vercel.json`).
+- **Backend**: Deployed on **Render** (FastAPI Python 3.12 Web Service managed via `render.yaml` blueprint).
+- **Database**: **Render PostgreSQL** with automatic Alembic migrations (`alembic upgrade head`) on startup.
+- **Vector Storage**: **ChromaDB `PersistentClient`** using a **Render Persistent Disk** mounted at `/var/data/chroma`.
+- **Uploaded Files**: Saved on **Render Persistent Disk** mounted at `/var/data/uploads`.
+- **AI Engine**: **Google Gemini 2.5 Pro** LLM/VLM and **Gemini Embeddings** (`models/text-embedding-004`).
+
+For complete, step-by-step instructions on setting up Render, Vercel, PostgreSQL, environment variables, and health checks, see [DEPLOYMENT.md](file:///c:/AI%20Customer%20Support%20platform/DEPLOYMENT.md).
+
+---
+
 ## 🧪 Verification & Testing
 
-To execute all 74 automated unit, integration, RAG, CrewAI, LangGraph, API, and E2E tests using the Python 3.12 `.venv`:
+To execute all 134 automated unit, integration, RAG, CrewAI, LangGraph, API, and E2E tests using Python 3.12:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest backend/tests/
+.\.venv\Scripts\pytest.exe
 ```
 
 To run frontend TypeScript build validation:
@@ -158,3 +173,4 @@ npm run build
 ## 🛡️ License
 
 Built for Enterprise AI Support Workflows. All rights reserved.
+
