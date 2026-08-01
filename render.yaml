@@ -5,7 +5,7 @@ version: "1"
 databases:
   - name: ai-research-copilot-db
     databaseName: customer_support_db
-    user: postgres
+    user: customer_support_user
     region: oregon
     plan: free
 
@@ -35,7 +35,7 @@ services:
           name: ai-research-copilot-db
           property: connectionString
       - key: SECRET_KEY
-        generateWithLength: 64
+        generateValue: true
       - key: GOOGLE_API_KEY
         sync: false
       - key: GEMINI_LLM_MODEL
