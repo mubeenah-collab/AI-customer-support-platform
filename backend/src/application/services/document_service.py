@@ -53,6 +53,7 @@ class DocumentService:
         )
 
         created_doc = await self.document_repo.create(new_doc)
+        await self.document_repo.session.commit()
         doc_response = DocumentResponse.model_validate(created_doc)
 
         return DocumentUploadResponse(

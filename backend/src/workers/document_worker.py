@@ -18,23 +18,38 @@ async def process_document_background(
     base_dir: Path,
     session_factory: async_sessionmaker[AsyncSession],
 ) -> bool:
-    """Background worker task processing uploaded document: loader -> clean -> chunk -> DB save."""
-    async with session_factory() as session:
-        # Fetch document
-        stmt = select(Document).where(Document.id == document_id)
-        result = await session.execute(stmt)
-        doc = result.scalars().first()
+    """Background worker task processing uploaded document: loader -> clean -> chunk -> embeddings -> ChromaDB -> DB save -> READY."""
+    logger.info(f"========== [START PROCESSING] Document ID: '{document_id}' ==========")
+    doc = None
 
-        if not doc:
-            logger.error(f"Document worker error: Document '{document_id}' not found.")
-            return False
+    # Retry loop in case HTTP session commit is in-flight
+    for attempt in range(1, 4):
+        async with session_factory() as session:
+            stmt = select(Document).where(Document.id == document_id)
+            result = await session.execute(stmt)
+            doc = result.scalars().first()
+            if doc:
+                break
+        logger.warning(f"[RETRY {attempt}/3] Document '{document_id}' not visible in DB yet. Waiting 0.5s...")
+        await asyncio.sleep(0.5)
+
+    if not doc:
+        logger.error(f"[FAILURE] Document worker error: Document '{document_id}' not found after 3 retries.")
+        return False
+
+    async with session_factory() as session:
+        # Fetch fresh doc attached to current session
+        stmt = select(Document).where(Document.id == document_id)
+        res = await session.execute(stmt)
+        doc = res.scalars().first()
 
         try:
-            # Update status to processing
+            # STEP 1: Mark status as PROCESSING
+            logger.info(f"[STEP 1/7] [UPDATE DATABASE] Updating status to 'processing' for '{document_id}'...")
             doc.status = "processing"
             await session.commit()
 
-            # Resolve physical file path safely
+            # STEP 2: Resolve file path on disk
             rel_path = Path(doc.file_path)
             if rel_path.is_absolute():
                 full_file_path = rel_path
@@ -43,12 +58,17 @@ async def process_document_background(
             else:
                 full_file_path = (base_dir / rel_path).resolve()
 
+            logger.info(f"[STEP 2/7] [SAVE/RESOLVE FILE] Physical file path: '{full_file_path}'")
             if not full_file_path.exists():
                 raise FileNotFoundError(f"File not found on disk at '{full_file_path}'.")
 
-            # Extract raw chunks via strategy factory
+            # STEP 3: Extract text from file using Loader Factory
+            logger.info(f"[STEP 3/7] [EXTRACT TEXT] Extracting text content from '{doc.filename}'...")
             extracted_chunks = DocumentLoaderFactory.load_document(full_file_path)
+            logger.info(f"[EXTRACT TEXT SUCCESS] Extracted {len(extracted_chunks)} section(s) from '{doc.filename}'.")
 
+            # STEP 4: Chunk document text into tokens
+            logger.info(f"[STEP 4/7] [CHUNK DOCUMENT] Chunking text content (chunk_size=1000, overlap=150)...")
             text_splitter = DocumentTextSplitter(chunk_size=1000, chunk_overlap=150)
             chunk_records: list[Chunk] = []
             chunk_index = 0
@@ -72,53 +92,61 @@ async def process_document_background(
                     chunk_records.append(new_chunk)
                     chunk_index += 1
 
-            # Save chunks to PostgreSQL database
+            logger.info(f"[CHUNK DOCUMENT SUCCESS] Created {len(chunk_records)} text chunk(s). Saving chunks to DB...")
+
+            # Save chunks to PostgreSQL / SQLite database
             for c in chunk_records:
                 session.add(c)
-
-            doc.status = "completed"
             doc.chunk_count = len(chunk_records)
             await session.commit()
 
-            # Attempt Vector DB Indexing (Gemini Embeddings -> ChromaDB)
+            # STEP 5 & 6: Generate Gemini Embeddings & Store in ChromaDB
             if chunk_records and (settings.GOOGLE_API_KEY or settings.GEMINI_API_KEY):
-                try:
-                    from backend.src.ai.embeddings.gemini_embedding import GeminiEmbeddingService
-                    from backend.src.ai.rag.base_vector_store import VectorChunk
-                    from backend.src.ai.rag.chroma_vector_store import ChromaVectorStore
-                    from backend.src.workers.embedding_worker import generate_chunk_embeddings
+                logger.info(f"[STEP 5/7] [GENERATE EMBEDDINGS] Requesting Gemini embedding vectors for {len(chunk_records)} chunk(s)...")
+                from backend.src.ai.embeddings.gemini_embedding import GeminiEmbeddingService
+                from backend.src.ai.rag.base_vector_store import VectorChunk
+                from backend.src.ai.rag.chroma_vector_store import ChromaVectorStore
+                from backend.src.workers.embedding_worker import generate_chunk_embeddings
 
-                    embed_service = GeminiEmbeddingService()
-                    chroma_store = ChromaVectorStore()
+                embed_service = GeminiEmbeddingService()
+                chroma_store = ChromaVectorStore()
 
-                    chunk_tuples = [(c.id, c.content) for c in chunk_records]
-                    id_vector_list = generate_chunk_embeddings(chunk_tuples, embedding_service=embed_service)
+                chunk_tuples = [(c.id, c.content) for c in chunk_records]
+                id_vector_list = generate_chunk_embeddings(chunk_tuples, embedding_service=embed_service)
+                logger.info(f"[GENERATE EMBEDDINGS SUCCESS] Received {len(id_vector_list)} vector(s) from Gemini API.")
 
-                    v_chunks = []
-                    for c, (c_id, vector) in zip(chunk_records, id_vector_list):
-                        v_chunks.append(
-                            VectorChunk(
-                                chunk_id=c.id,
-                                content=c.content,
-                                embedding=vector,
-                                document_id=doc.id,
-                                document_name=doc.filename,
-                                chunk_index=c.chunk_index,
-                                page_number=c.page_number,
-                            )
+                logger.info(f"[STEP 6/7] [STORE VECTORS] Storing vector embeddings in ChromaDB Persistent Store...")
+                v_chunks = []
+                for c, (c_id, vector) in zip(chunk_records, id_vector_list):
+                    v_chunks.append(
+                        VectorChunk(
+                            chunk_id=c.id,
+                            content=c.content,
+                            embedding=vector,
+                            document_id=doc.id,
+                            document_name=doc.filename,
+                            chunk_index=c.chunk_index,
+                            page_number=c.page_number,
                         )
+                    )
 
-                    chroma_store.add_chunks(v_chunks)
-                    logger.info(f"Indexed {len(v_chunks)} chunks in ChromaDB for document '{document_id}'.")
-                except Exception as embed_err:
-                    logger.warning(f"Vector DB indexing skipped/failed for document '{document_id}': {str(embed_err)}")
+                chroma_store.add_chunks(v_chunks)
+                logger.info(f"[STORE VECTORS SUCCESS] Stored {len(v_chunks)} chunk vectors in ChromaDB collection.")
 
-            logger.info(f"Document worker success: Document '{document_id}' processed into {len(chunk_records)} chunks.")
+            # STEP 7: Mark Document Status as READY / COMPLETED
+            logger.info(f"[STEP 7/7] [MARK READY] Updating document '{doc.id}' status to 'ready' (completed)...")
+            doc.status = "ready"
+            doc.error_message = None
+            await session.commit()
+
+            logger.info(f"========== [SUCCESS] Document '{doc.filename}' ({document_id}) is READY with {len(chunk_records)} chunk(s) stored. ==========")
             return True
 
         except Exception as e:
             await session.rollback()
-            logger.exception(f"Document worker failed for document '{document_id}': {str(e)}")
+            import traceback
+            err_trace = traceback.format_exc()
+            logger.exception(f"[FAILURE] Document worker processing failed for '{document_id}':\n{err_trace}")
 
             # Update document to failed state
             async with session_factory() as fail_session:

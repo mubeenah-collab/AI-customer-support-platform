@@ -7,7 +7,7 @@ export interface DocumentItem {
   id: string;
   filename: string;
   file_size: number;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'ready' | 'failed';
   chunk_count: number;
   created_at: string;
 }
@@ -39,10 +39,11 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onDocumen
 
   const renderStatusBadge = (status: DocumentItem['status']) => {
     switch (status) {
+      case 'ready':
       case 'completed':
         return (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', padding: '0.25rem 0.75rem', borderRadius: '9999px', backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#4ade80', fontSize: '0.75rem', fontWeight: 600 }}>
-            <CheckCircle2 size={14} /> Completed
+            <CheckCircle2 size={14} /> Ready
           </span>
         );
       case 'processing':

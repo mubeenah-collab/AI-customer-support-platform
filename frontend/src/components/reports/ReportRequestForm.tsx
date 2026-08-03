@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { FileText, BarChart2, Sparkles, Loader2 } from 'lucide-react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { FileText, BarChart2, Sparkles, Loader2, RefreshCw, AlertCircle } from 'lucide-react';
 import { apiClient } from '../../services/apiClient';
 
 interface DocumentOption {
@@ -23,31 +23,71 @@ export const ReportRequestForm: React.FC<ReportRequestFormProps> = ({
   const [selectedDocId, setSelectedDocId] = useState('');
   const [topic, setTopic] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isFetchingDocs, setIsFetchingDocs] = useState(true);
+
+  // Fetch documents from backend API
+  const fetchDocs = useCallback(async () => {
+    try {
+      setIsFetchingDocs(true);
+      const res = await apiClient.get('/documents');
+      const data = res.data;
+      const docsList = Array.isArray(data) ? data : (data?.documents || data?.items || []);
+      const safeList = Array.isArray(docsList) ? docsList : [];
+      setDocuments(safeList);
+      if (safeList.length > 0) {
+        setSelectedDocId((prev) => (safeList.some((d) => d.id === prev) ? prev : safeList[0].id));
+      } else {
+        setSelectedDocId('');
+      }
+    } catch (err) {
+      console.error('Failed to load documents for report request:', err);
+      setDocuments([]);
+      setSelectedDocId('');
+    } finally {
+      setIsFetchingDocs(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchDocs = async () => {
-      try {
-        const res = await apiClient.get('/documents');
-        const data = res.data;
-        const docsList = Array.isArray(data) ? data : (data?.documents || data?.items || []);
-        const safeList = Array.isArray(docsList) ? docsList : [];
-        setDocuments(safeList);
-        if (safeList.length > 0) setSelectedDocId(safeList[0].id);
-      } catch (err) {
-        console.error('Failed to load documents for report request:', err);
-        setDocuments([]);
-      }
-    };
     fetchDocs();
-  }, []);
+  }, [fetchDocs]);
+
+  // Window focus listener to refresh document list when user returns/uploads
+  useEffect(() => {
+    const onFocus = () => fetchDocs();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [fetchDocs]);
+
+  // Validate and sanitize selectedDocId whenever documents array changes
+  useEffect(() => {
+    if (documents.length > 0) {
+      const isValid = documents.some((d) => d.id === selectedDocId);
+      if (!isValid) {
+        console.log('[ReportRequestForm] Resetting selectedDocId to active document:', documents[0].id);
+        setSelectedDocId(documents[0].id);
+      }
+    } else {
+      setSelectedDocId('');
+    }
+  }, [documents, selectedDocId]);
+
+  const safeDocs = Array.isArray(documents) ? documents : [];
+  const isDocSelectionInvalid =
+    reportType === 'document' &&
+    (safeDocs.length === 0 || !selectedDocId || !safeDocs.some((d) => d.id === selectedDocId));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (reportType === 'document' && !selectedDocId) {
-      setError('Please select a document to summarize.');
-      return;
+    // Hardened pre-submit check: Verify selectedDocId exists in current documents array
+    if (reportType === 'document') {
+      const docMatch = safeDocs.find((d) => d.id === selectedDocId);
+      if (!docMatch || !selectedDocId) {
+        setError('No valid document selected');
+        return;
+      }
     }
 
     if (reportType === 'support' && !topic.trim()) {
@@ -58,6 +98,7 @@ export const ReportRequestForm: React.FC<ReportRequestFormProps> = ({
     try {
       setIsLoading(true);
       if (reportType === 'document') {
+        console.log('[ReportRequestForm] Submitting verified document summary payload:', { document_id: selectedDocId });
         const res = await apiClient.post('/reports/document-summary', {
           document_id: selectedDocId,
         });
@@ -75,13 +116,35 @@ export const ReportRequestForm: React.FC<ReportRequestFormProps> = ({
     }
   };
 
-  const safeDocs = Array.isArray(documents) ? documents : [];
-
   return (
     <div className="glass-card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
-      <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f8fafc', marginBottom: '1rem' }}>
-        Generate AI Report
-      </h3>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+        <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f8fafc' }}>
+          Generate AI Report
+        </h3>
+        <button
+          type="button"
+          onClick={() => fetchDocs()}
+          disabled={isFetchingDocs}
+          title="Refresh Document List"
+          style={{
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '0.5rem',
+            color: '#94a3b8',
+            padding: '0.4rem 0.75rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.35rem',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          <RefreshCw size={14} style={{ animation: isFetchingDocs ? 'spin 1s linear infinite' : 'none' }} />
+          <span>{isFetchingDocs ? 'Syncing...' : 'Refresh List'}</span>
+        </button>
+      </div>
 
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
         <button
@@ -134,16 +197,26 @@ export const ReportRequestForm: React.FC<ReportRequestFormProps> = ({
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {reportType === 'document' ? (
           <div>
-            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#cbd5e1', marginBottom: '0.5rem' }}>
-              Select Knowledge Base Document
-            </label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <label style={{ fontSize: '0.875rem', fontWeight: 500, color: '#cbd5e1' }}>
+                Select Knowledge Base Document
+              </label>
+              {isFetchingDocs && (
+                <span style={{ fontSize: '0.75rem', color: '#818cf8', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Loading documents...
+                </span>
+              )}
+            </div>
+
             <select
               className="input-field"
               value={selectedDocId}
               onChange={(e) => setSelectedDocId(e.target.value)}
-              disabled={safeDocs.length === 0}
+              disabled={isFetchingDocs || safeDocs.length === 0}
             >
-              {safeDocs.length === 0 ? (
+              {isFetchingDocs ? (
+                <option value="">Loading available documents...</option>
+              ) : safeDocs.length === 0 ? (
                 <option value="">No documents available. Upload documents first.</option>
               ) : (
                 safeDocs.map((doc) => (
@@ -153,6 +226,12 @@ export const ReportRequestForm: React.FC<ReportRequestFormProps> = ({
                 ))
               )}
             </select>
+
+            {isDocSelectionInvalid && !isFetchingDocs && (
+              <p style={{ color: '#f87171', fontSize: '0.85rem', marginTop: '0.5rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <AlertCircle size={14} /> No valid document selected
+              </p>
+            )}
           </div>
         ) : (
           <div>
@@ -170,14 +249,31 @@ export const ReportRequestForm: React.FC<ReportRequestFormProps> = ({
         )}
 
         {error && (
-          <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{error}</p>
+          <p style={{ color: '#f87171', fontSize: '0.875rem', fontWeight: 600 }}>{error}</p>
         )}
 
         <button
           type="submit"
           className="btn-primary"
-          disabled={isLoading || (reportType === 'document' && !selectedDocId)}
-          style={{ width: '100%', justifyContent: 'center', padding: '0.875rem', opacity: isLoading ? 0.6 : 1 }}
+          disabled={
+            isLoading ||
+            isFetchingDocs ||
+            (reportType === 'document' && isDocSelectionInvalid) ||
+            (reportType === 'support' && !topic.trim())
+          }
+          style={{
+            width: '100%',
+            justifyContent: 'center',
+            padding: '0.875rem',
+            opacity:
+              isLoading || isFetchingDocs || (reportType === 'document' && isDocSelectionInvalid)
+                ? 0.5
+                : 1,
+            cursor:
+              isLoading || isFetchingDocs || (reportType === 'document' && isDocSelectionInvalid)
+                ? 'not-allowed'
+                : 'pointer',
+          }}
         >
           {isLoading ? (
             <>

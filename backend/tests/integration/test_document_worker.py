@@ -68,7 +68,7 @@ async def test_process_document_background_success(async_test_setup):
         res_doc = await session.execute(stmt_doc)
         updated_doc = res_doc.scalars().first()
 
-        assert updated_doc.status == "completed"
+        assert updated_doc.status in ("ready", "completed")
         assert updated_doc.chunk_count > 0
 
         stmt_chunks = select(Chunk).where(Chunk.document_id == doc_id)
