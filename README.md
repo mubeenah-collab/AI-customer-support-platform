@@ -12,7 +12,7 @@ An enterprise-grade, multi-agent AI Customer Support Platform built with **Clean
 
 ---
 
-## 💡 Key Architectural Features
+## Key Architectural Features
 
 1. **Clean Architecture Core**:
    - Decoupled into `Domain` (Entities, Value Objects, Domain Exceptions, Interfaces), `Application` (Use Cases, Services), `Infrastructure` (SQLAlchemy 2.x, ChromaDB, Security, Storage, Gemini API), and `Presentation` (FastAPI Routers, Pydantic DTOs, Middleware).
@@ -23,9 +23,9 @@ An enterprise-grade, multi-agent AI Customer Support Platform built with **Clean
 3. **Multi-Agent AI Orchestration**:
    - **LangGraph Workflow**: Directed state machine (`SupportState`, `support_graph.py`) with conditional node routing (`should_run_vision`).
    - **CrewAI Specialized 3-Agent Crew**:
-     - 🔍 `ResearchAgent`: Knowledge base retrieval & document analysis.
-     - 👁️ `VisionAgent`: Technical error screenshot diagnosis via Gemini 1.5 Flash VLM.
-     - ✍️ `SynthesisAgent`: Grounded customer response synthesis with citation match formatting.
+     -  `ResearchAgent`: Knowledge base retrieval & document analysis.
+     -  `VisionAgent`: Technical error screenshot diagnosis via Gemini 1.5 Flash VLM.
+     -  `SynthesisAgent`: Grounded customer response synthesis with citation match formatting.
 
 4. **Multi-Format RAG & Hybrid Vector Search**:
    - Ingestion of PDF, DOCX, PPTX, TXT, CSV, XLSX, and Image files.
@@ -43,7 +43,7 @@ An enterprise-grade, multi-agent AI Customer Support Platform built with **Clean
 
 ---
 
-## 📁 Repository Structure
+## Repository Structure
 
 ```
 c:/AI Customer Support platform/
@@ -80,7 +80,7 @@ c:/AI Customer Support platform/
 
 ---
 
-## 🚀 Quick Start Guide
+## Quick Start Guide
 
 ### Option 1: Run via Docker Compose (Isolated Ports)
 
@@ -138,7 +138,7 @@ Open `http://localhost:3100` in your browser.
 
 ---
 
-## 🌐 Production Architecture & Azure Cloud Deployment
+## Production Architecture & Azure Cloud Deployment
 
 This platform is production-ready for deployment on **Microsoft Azure** using **Azure for Students** credits ($100 free credit, zero mandatory credit card requirement):
 
@@ -153,7 +153,7 @@ For complete, step-by-step instructions on setting up Azure App Service, Azure S
 
 ---
 
-## 🧪 Verification & Testing
+## Verification & Testing
 
 To execute all 134 automated unit, integration, RAG, CrewAI, LangGraph, API, and E2E tests using Python 3.12:
 
